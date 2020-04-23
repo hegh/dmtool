@@ -21,10 +21,10 @@ public class DMTool {
   private BufferedImage playerImage;
   private BufferedImage dmImage;
 
-  private PlayerWindow playerWindow;
-  private DMWindow dmWindow;
+  private MapWindow playerWindow;
+  private MapWindow dmWindow;
 
-  private double playerScale = 1.0;
+  private final double playerScale = 1.0;
   private double dmScale = 1.0;
 
   // The same Regions when presenting; player is cloned from DM when paused.
@@ -69,8 +69,8 @@ public class DMTool {
     SwingUtilities.invokeLater(new Runnable() {
       @Override
       public void run() {
-        playerWindow = new PlayerWindow(DMTool.this);
-        dmWindow = new DMWindow(DMTool.this);
+        playerWindow = new MapWindow(DMTool.this, /* isPlayer = */ true);
+        dmWindow = new MapWindow(DMTool.this, /* isPlayer = */ false);
 
         playerWindow.setVisible(true);
         dmWindow.setVisible(true);
@@ -88,35 +88,28 @@ public class DMTool {
     dmWindow.repaint();
   }
 
-  Image getPlayerImage() {
-    return playerImage;
-  }
-
-  Image getDMImage() {
+  Image getImage(final boolean isPlayer) {
+    if (isPlayer && paused) {
+      return playerImage;
+    }
     return dmImage;
   }
 
-  double getPlayerScale() {
-    return playerScale;
-  }
-
-  void setPlayerScale(final double scale) {
-    playerScale = scale;
-  }
-
-  double getDMScale() {
+  double getScale(final boolean isPlayer) {
+    if (isPlayer && paused) {
+      return playerScale;
+    }
     return dmScale;
   }
 
-  void setDMScale(final double scale) {
+  void setScale(final double scale) {
     dmScale = scale;
   }
 
-  Regions getPlayerRegions() {
-    return playerRegions;
-  }
-
-  Regions getDMRegions() {
+  Regions getRegions(final boolean isPlayer) {
+    if (isPlayer && paused) {
+      return playerRegions;
+    }
     return dmRegions;
   }
 
