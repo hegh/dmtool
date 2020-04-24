@@ -4,6 +4,7 @@ package dmtool;
 import java.awt.AlphaComposite;
 import java.awt.Canvas;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -15,6 +16,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.geom.AffineTransform;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.SwingUtilities;
 
@@ -25,6 +28,32 @@ public class MapPanel
   private static final Color DM_HIDDEN_MASK_COLOR = new Color(0, 0, 128, 128);
 
   private static final int HANDLE_SIZE = 6;
+
+  private static final int OUT_OF_REGION = 0;
+  private static final int NW_CORNER = 1;
+  private static final int N_CORNER = 2;
+  private static final int NE_CORNER = 3;
+  private static final int E_CORNER = 4;
+  private static final int SE_CORNER = 5;
+  private static final int S_CORNER = 6;
+  private static final int SW_CORNER = 7;
+  private static final int W_CORNER = 8;
+  private static final int IN_REGION = 9;
+
+  private static final Map<Integer, Integer> cursorMap;
+  static {
+    cursorMap = new HashMap<>();
+    cursorMap.put(OUT_OF_REGION, Cursor.DEFAULT_CURSOR);
+    cursorMap.put(NW_CORNER, Cursor.NW_RESIZE_CURSOR);
+    cursorMap.put(N_CORNER, Cursor.N_RESIZE_CURSOR);
+    cursorMap.put(NE_CORNER, Cursor.NE_RESIZE_CURSOR);
+    cursorMap.put(E_CORNER, Cursor.E_RESIZE_CURSOR);
+    cursorMap.put(SE_CORNER, Cursor.SE_RESIZE_CURSOR);
+    cursorMap.put(S_CORNER, Cursor.S_RESIZE_CURSOR);
+    cursorMap.put(SW_CORNER, Cursor.SW_RESIZE_CURSOR);
+    cursorMap.put(W_CORNER, Cursor.W_RESIZE_CURSOR);
+    cursorMap.put(IN_REGION, Cursor.MOVE_CURSOR);
+  }
 
   final DMTool parent;
   final boolean isPlayer;
@@ -38,7 +67,7 @@ public class MapPanel
 
   // Last known mouse position.
   int mx, my;
-  boolean mouseInRegion = false;
+  int mouseStatus = OUT_OF_REGION;
 
   public MapPanel(final DMTool parent, final boolean isPlayer) {
     this.parent = parent;
@@ -87,15 +116,16 @@ public class MapPanel
         for (final Region r : parent.getRegions(isPlayer).getRegions()) {
           if (r.scaledContains(scale, mx, my)) {
             found = true;
-            mouseInRegion = true;
+            mouseStatus = determineMouseStatus(r);
             repaint();
             break;
           }
         }
-        if (!found && mouseInRegion) {
+        if (!found) {
           repaint();
-          mouseInRegion = false;
+          mouseStatus = OUT_OF_REGION;
         }
+        setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
       }
     });
 
@@ -187,7 +217,7 @@ public class MapPanel
         return;
       }
 
-      if (mouseInRegion) {
+      if (mouseStatus != OUT_OF_REGION) {
         for (final Region r : parent.getRegions(isPlayer).getRegions()) {
           if (r.scaledContains(scale, mx, my)) {
             System.err.println("Drawing controls for mouse-over region " + r.id);
@@ -219,6 +249,42 @@ public class MapPanel
     drawHandle(g, scale * (r.getX() + r.w / 2), scale * (r.getY() + r.h) - HANDLE_SIZE + 1); // Bottom.
     drawHandle(g, scale * r.getX(), scale * (r.getY() + r.h / 2)); // Left.
     drawHandle(g, scale * (r.getX() + r.w) - HANDLE_SIZE + 1, scale * (r.getY() + r.h / 2)); // Right.
+  }
+
+  private int determineMouseStatus(final Region r) {
+    final double min = HANDLE_SIZE * 2;
+    if (scaledMouseDist(r.getX(), r.getY()) <= min) { // Upper-left.
+      return NW_CORNER;
+    }
+    if (scaledMouseDist(r.getX() + r.w, r.getY()) <= min) { // Upper-right.
+      return NE_CORNER;
+    }
+    if (scaledMouseDist(r.getX(), r.getY() + r.h) <= min) { // Lower-left.
+      return SW_CORNER;
+    }
+    if (scaledMouseDist(r.getX() + r.w, r.getY() + r.h) <= min) { // Lower-right.
+      return SE_CORNER;
+    }
+    if (scaledMouseDist(r.getX() + r.w / 2, r.getY()) <= min) { // Top.
+      return N_CORNER;
+    }
+    if (scaledMouseDist(r.getX() + r.w / 2, r.getY() + r.h) <= min) { // Bottom.
+      return S_CORNER;
+    }
+    if (scaledMouseDist(r.getX(), r.getY() + r.h / 2) <= min) { // Left.
+      return E_CORNER;
+    }
+    if (scaledMouseDist(r.getX() + r.w, r.getY() + r.h / 2) <= min) {
+      return W_CORNER;
+    }
+    return IN_REGION;
+  }
+
+  private double scaledMouseDist(final int x, final int y) {
+    final double scale = parent.getScale(isPlayer);
+    final double dx = scale * x - mx;
+    final double dy = scale * y - my;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
   private void drawHandle(final Graphics2D g, final double dx, final double dy) {
