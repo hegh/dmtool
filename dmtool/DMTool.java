@@ -2,6 +2,7 @@
 package dmtool;
 
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -24,8 +25,11 @@ public class DMTool {
   private MapWindow playerWindow;
   private MapWindow dmWindow;
 
-  private final double playerScale = 1.0;
+  private double playerScale = 1.0;
   private double dmScale = 1.0;
+
+  private Point playerOffset = new Point(0, 0);
+  private Point dmOffset = new Point(0, 0);
 
   // The same Regions when presenting; player is cloned from DM when paused.
   private Regions playerRegions = new Regions();
@@ -106,6 +110,17 @@ public class DMTool {
     dmScale = scale;
   }
 
+  Point getOffset(final boolean isPlayer) {
+    if (isPlayer && paused) {
+      return playerOffset;
+    }
+    return dmOffset;
+  }
+
+  void setOffset(final Point offset) {
+    dmOffset = offset;
+  }
+
   Regions getRegions(final boolean isPlayer) {
     if (isPlayer && paused) {
       return playerRegions;
@@ -130,6 +145,8 @@ public class DMTool {
       playerImage = new BufferedImage(dmImage.getColorModel(), dmImage.copyData(null), dmImage.isAlphaPremultiplied(), null);
     }
     playerRegions = dmRegions.clone();
+    playerScale = dmScale;
+    playerOffset = dmOffset;
     firePaused();
   }
 
@@ -148,8 +165,9 @@ public class DMTool {
       return;
     }
     paused = false;
-    playerImage = dmImage;
-    playerRegions = dmRegions;
+    playerImage = null;
+    playerRegions = null;
+    playerOffset = null;
     fireResumed();
   }
 

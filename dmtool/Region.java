@@ -45,6 +45,7 @@ public class Region {
   @Override
   public Region clone() {
     final Region copy = new Region(parent, x, y, w, h);
+    copy.state = state;
     return copy;
   }
 }

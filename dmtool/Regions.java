@@ -1,11 +1,7 @@
 
 package dmtool;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -16,42 +12,7 @@ import java.util.Map;
  */
 public class Regions {
   private final Map<Integer, RegionGroup> groups = new HashMap<>();
-  private final Map<Integer, Region> regions = new HashMap<>();
-
-  /**
-   * Returns a transparency mask representing this group of regions.
-   *
-   * @param emptyMask The color to use for areas not covered by any region.
-   *          Probably black or something semi-transparent.
-   * @param hiddenMask The color to use for areas covered by a hidden region.
-   *          Probably black or something semi-transparent. Visible regions will
-   *          be fully transparent.
-   * @param w The width of the returned image, in pixels.
-   * @param h The height of the returned image, in pixels.
-   * @return An image that can be drawn over a map to mask off areas that should
-   *         not be seen.
-   */
-  public Image getMask(final Color emptyMask, final Color hiddenMask, final int w, final int h) {
-    System.err.println("Creating mask " + w + "x" + h);
-    final BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-    final Graphics2D g = img.createGraphics();
-
-    // Black out the entire image.
-    g.setComposite(AlphaComposite.Src);
-    g.setColor(emptyMask);
-    g.fillRect(0, 0, w, h);
-    for (final Region r : regions.values()) {
-      if (r.isVisible()) {
-        g.setColor(new Color(0, 0, 0, 0)); // Make visible regions transparent.
-      }
-      else {
-        g.setColor(hiddenMask);
-      }
-      g.fillRect(r.getX(), r.getY(), r.w, r.h);
-    }
-    g.dispose();
-    return img;
-  }
+  private final Collection<Region> regions = new ArrayList<>();
 
   public void clear() {
     groups.clear();
@@ -73,12 +34,12 @@ public class Regions {
     }
 
     final Region region = new Region(parent, x, y, w, h);
-    regions.put(region.id, region);
+    regions.add(region);
     return region;
   }
 
   public Collection<Region> getRegions() {
-    return regions.values();
+    return regions;
   }
 
   @Override
@@ -94,11 +55,10 @@ public class Regions {
     }
 
     // Copy regions, re-parenting to copied parents.
-    for (final Region region : regions.values()) {
-      final RegionGroup parent = g.get(region.id);
+    for (final Region region : regions) {
       final Region copy = region.clone();
-      copy.parent = parent;
-      n.regions.put(copy.id, copy);
+      copy.parent = g.get(region.parent.id);
+      n.regions.add(copy);
     }
     return n;
   }
