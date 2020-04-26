@@ -5,6 +5,7 @@ import java.awt.AlphaComposite;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -26,9 +27,6 @@ import javax.swing.SwingUtilities;
 
 public class MapPanel
   extends Canvas {
-  /**
-   *
-   */
   private static final int SCROLL_DIST = 25;
   private static final int LEFT = 1;
   private static final int RIGHT = 2;
@@ -51,6 +49,7 @@ public class MapPanel
   private static final int SW_CORNER = 7;
   private static final int W_EDGE = 8;
   private static final int IN_REGION = 9;
+  private static final int NEW_REGION = 10;
 
   private static final Map<Integer, Integer> cursorMap;
   static {
@@ -65,6 +64,7 @@ public class MapPanel
     cursorMap.put(SW_CORNER, Cursor.SW_RESIZE_CURSOR);
     cursorMap.put(W_EDGE, Cursor.W_RESIZE_CURSOR);
     cursorMap.put(IN_REGION, Cursor.MOVE_CURSOR);
+    cursorMap.put(NEW_REGION, Cursor.CROSSHAIR_CURSOR);
   }
 
   private class Corners {
@@ -85,7 +85,7 @@ public class MapPanel
       double by = 0;
       double bw = 0;
       double bh = 0;
-      if (dragging) {
+      if (dragging && r == activeRegion) {
         // Mouse coordinates are in a scaled image, so reverse the scale first.
         final int dx = mx - sx;
         final int dy = my - sy;
@@ -127,6 +127,10 @@ public class MapPanel
 
   int mx, my; // Last known mouse position.
   int mouseStatus = OUT_OF_REGION;
+
+  // If true, activeRegion is being created.
+  // If activeRegion is null, it will be created on mouse-down.
+  boolean newRegion = false;
 
   Region activeRegion; // If in a region.
   int sx, sy; // Starting mouse coordinates for a resize or drag operation.
@@ -185,6 +189,10 @@ public class MapPanel
         activeRegion.w += (int)(invScale * wm * dx);
         activeRegion.y += (int)(invScale * ym * dy);
         activeRegion.h += (int)(invScale * hm * dy);
+        if (newRegion) {
+          activeRegion = parent.getRegions(isPlayer).addRegion(0, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
+          newRegion = false;
+        }
         parent.repaint();
       }
 
@@ -202,8 +210,21 @@ public class MapPanel
         }
         if (dragging && e.getButton() == 3) {
           dragging = false;
+          newRegion = false;
           detectMouseOverRegion();
           repaint();
+          return;
+        }
+        if (activeRegion == null && newRegion && e.getButton() == 1) {
+          // Create a new region.
+          final Point mouse = windowToImageCoords(mx, my);
+          activeRegion = new Region(null, mouse.x, mouse.y, 0, 0);
+          sx = mx;
+          sy = my;
+          dragging = true;
+          mouseStatus = SE_CORNER;
+          setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+          setMultipliers(0, 1, 0, 1);
           return;
         }
         if (activeRegion != null && e.getButton() == 1) {
@@ -301,13 +322,40 @@ public class MapPanel
     addKeyListener(new KeyAdapter() {
       @Override
       public void keyPressed(final KeyEvent e) {
+        System.err.println("Key pressed " + e.getKeyCode() + " (" + e.getKeyChar() + ") modifiers " +
+                           InputEvent.getModifiersExText(e.getModifiersEx()));
+        System.err.println("Modifiers: " + e.getModifiersEx() + " (ctrl = " + InputEvent.CTRL_DOWN_MASK + ")");
+
         if (e.getModifiersEx() == 0) {
           switch (e.getKeyCode()) {
-            case KeyEvent.VK_F:
-              parent.togglePause();
+            case KeyEvent.VK_R:
+              activeRegion = null;
+              newRegion = true;
+              mouseStatus = NEW_REGION;
+              setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+              break;
+            case KeyEvent.VK_SPACE:
+              if (activeRegion != null) {
+                activeRegion.toggleState();
+                parent.repaint();
+              }
+              break;
+            case KeyEvent.VK_DELETE:
+            case KeyEvent.VK_BACK_SPACE:
+              if (activeRegion != null) {
+                parent.getRegions(isPlayer).removeRegion(activeRegion.id);
+                activeRegion = null;
+                parent.repaint();
+              }
               break;
             case KeyEvent.VK_ESCAPE:
-              parent.quit();
+              dragging = false;
+              newRegion = false;
+              detectMouseOverRegion();
+              repaint();
+              break;
+            case KeyEvent.VK_Q:
+              parent.togglePause();
               break;
             case KeyEvent.VK_LEFT:
               scroll(LEFT, 1);
@@ -323,11 +371,22 @@ public class MapPanel
               break;
           }
         }
+        else if ((e.getModifiersEx() & InputEvent.CTRL_DOWN_MASK) == InputEvent.CTRL_DOWN_MASK) {
+          switch (e.getKeyCode()) {
+            case KeyEvent.VK_Q:
+              parent.quit();
+              break;
+          }
+        }
       }
     });
   }
 
   private void detectMouseOverRegion() {
+    if (newRegion && activeRegion == null) {
+      mouseStatus = NEW_REGION;
+      return;
+    }
     final double scale = parent.getScale(isPlayer);
     boolean found = false;
     for (final Region r : parent.getRegions(isPlayer).getRegions()) {
@@ -345,6 +404,17 @@ public class MapPanel
       activeRegion = null;
     }
     setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+  }
+
+  Point windowToImageCoords(int x, int y) {
+    final Point off = parent.getOffset(isPlayer);
+    x -= off.x;
+    y -= off.y;
+
+    final double invScale = 1.0 / parent.getScale(isPlayer);
+    x = (int)(x * invScale);
+    y = (int)(y * invScale);
+    return new Point(x, y);
   }
 
   void scroll(final int direction, final int value) {
@@ -438,6 +508,11 @@ public class MapPanel
       final Corners c = new Corners(r);
       g.fillRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
     }
+    if (newRegion && activeRegion != null) {
+      g.setColor(hiddenMaskColor);
+      final Corners c = new Corners(activeRegion);
+      g.fillRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
+    }
     g.dispose();
     return img;
   }
@@ -474,6 +549,37 @@ public class MapPanel
       if (activeRegion != null) {
         drawCorners(g, activeRegion);
         drawControls(g, activeRegion);
+      }
+
+      if (parent.isPaused()) {
+        // Rotate slowly between red, white, red, black, ...
+        final int t = (int)(System.currentTimeMillis() / 3 % 1024);
+        int red;
+        int gb;
+        if (t < 256) { // 0 - 255
+          // Move from black to red.
+          red = t; // 0-255
+          gb = 0;
+        }
+        else if (t < 512) { // 256 - 511
+          // Move from red to white.
+          red = 255;
+          gb = t - 256; // 0 - 255
+        }
+        else if (t < 768) { // 512 - 768
+          // Move from white to red.
+          red = 255;
+          gb = 255 - (t - 512); // 255 - (0 - 255) = 0 - 255
+        }
+        else { // 768 - 1023
+          // Move from red to black.
+          red = 255 - (t - 768); // 255 - (0 - 255) = 0 - 255
+          gb = 0;
+        }
+
+        g.setColor(new Color(red, gb, gb, 128));
+        g.setFont(new Font(null, 0, 50));
+        g.drawString("PAUSED", 25, 50);
       }
     }
     finally {

@@ -1,7 +1,6 @@
 
 package dmtool;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -12,7 +11,7 @@ import java.util.Map;
  */
 public class Regions {
   private final Map<Integer, RegionGroup> groups = new HashMap<>();
-  private final Collection<Region> regions = new ArrayList<>();
+  private final Map<Integer, Region> regions = new HashMap<>();
 
   public void clear() {
     groups.clear();
@@ -34,12 +33,16 @@ public class Regions {
     }
 
     final Region region = new Region(parent, x, y, w, h);
-    regions.add(region);
+    regions.put(region.id, region);
     return region;
   }
 
+  public void removeRegion(final int id) {
+    regions.remove(id);
+  }
+
   public Collection<Region> getRegions() {
-    return regions;
+    return regions.values();
   }
 
   @Override
@@ -55,10 +58,10 @@ public class Regions {
     }
 
     // Copy regions, re-parenting to copied parents.
-    for (final Region region : regions) {
+    for (final Region region : regions.values()) {
       final Region copy = region.clone();
       copy.parent = g.get(region.parent.id);
-      n.regions.add(copy);
+      n.regions.put(copy.id, copy);
     }
     return n;
   }

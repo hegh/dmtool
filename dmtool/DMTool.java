@@ -206,11 +206,6 @@ public class DMTool {
     savePath = null;
     dmImage = img;
     dmRegions = new Regions();
-
-    // TODO: Remove this, it is just for debugging:
-    final Region region = dmRegions.addRegion(0, 10, 10, 50, 100);
-    region.state = Region.State.VISIBLE;
-
     fireNewMap();
   }
 

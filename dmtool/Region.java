@@ -30,12 +30,29 @@ public class Region {
     return state == State.VISIBLE;
   }
 
+  void toggleState() {
+    if (state == State.VISIBLE) {
+      state = State.HIDDEN; // TODO: Switch to Fogged once implemented.
+    }
+    else {
+      state = State.VISIBLE;
+    }
+  }
+
   int getX() {
-    return x + parent.x;
+    int x = this.x;
+    if (parent != null) {
+      x += parent.x;
+    }
+    return x;
   }
 
   int getY() {
-    return y + parent.y;
+    int y = this.y;
+    if (parent != null) {
+      y += parent.y;
+    }
+    return y;
   }
 
   boolean scaledContains(final double scale, final int x, final int y) {

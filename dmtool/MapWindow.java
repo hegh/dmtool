@@ -3,6 +3,7 @@ package dmtool;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.FocusEvent.Cause;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
@@ -43,6 +44,8 @@ public class MapWindow
     if (isPlayer) {
       return;
     }
+
+    mapPanel.requestFocus(Cause.ACTIVATION);
   }
 
   @Override
