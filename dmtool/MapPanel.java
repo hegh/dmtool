@@ -309,6 +309,18 @@ public class MapPanel
             case KeyEvent.VK_ESCAPE:
               parent.quit();
               break;
+            case KeyEvent.VK_LEFT:
+              scroll(LEFT, 1);
+              break;
+            case KeyEvent.VK_RIGHT:
+              scroll(RIGHT, 1);
+              break;
+            case KeyEvent.VK_UP:
+              scroll(UP, 1);
+              break;
+            case KeyEvent.VK_DOWN:
+              scroll(DOWN, 1);
+              break;
           }
         }
       }
