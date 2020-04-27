@@ -1,12 +1,19 @@
 
 package dmtool;
 
+import java.awt.Color;
+
 public class Region {
   private static int nextID = 1;
   public RegionGroup parent;
   public final int id;
   public int x, y;
   public int w, h;
+
+  public boolean isAvatar;
+  public boolean isDead;
+  public char symbol;
+  public Color color;
 
   public static enum State {
     HIDDEN,
@@ -31,6 +38,10 @@ public class Region {
   }
 
   void toggleState() {
+    if (isAvatar) {
+      isDead = !isDead;
+      return;
+    }
     if (state == State.VISIBLE) {
       state = State.HIDDEN; // TODO: Switch to Fogged once implemented.
     }
@@ -56,7 +67,8 @@ public class Region {
   }
 
   boolean scaledContains(final double scale, final int x, final int y) {
-    return scale * getX() <= x && x <= scale * (getX() + w) && scale * getY() <= y && y <= scale * (getY() + h);
+    return scale * getX() <= x && x <= scale * (getX() + w) && scale * getY() <= y &&
+           y <= scale * (getY() + h);
   }
 
   @Override

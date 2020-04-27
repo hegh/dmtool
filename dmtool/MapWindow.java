@@ -23,7 +23,7 @@ public class MapWindow
     setPreferredSize(new Dimension(1024, 768));
     setLayout(new BorderLayout());
 
-    mapPanel = new MapPanel(parent, isPlayer);
+    mapPanel = new MapPanel(parent, this, isPlayer);
     add(mapPanel, BorderLayout.CENTER);
     if (isPlayer) {
       fileList = null;

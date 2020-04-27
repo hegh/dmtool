@@ -1,6 +1,7 @@
 
 package dmtool;
 
+import java.awt.Dimension;
 import java.io.File;
 
 import javax.swing.JList;
@@ -22,6 +23,7 @@ public class FileList
   }
 
   public FileList(final DMTool parent) {
+    setMinimumSize(new Dimension(100, 60));
     setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     parent.addDirectoryChangeListener(() -> {
       final File[] maps = parent.getDirectory().listFiles((final File f) -> {

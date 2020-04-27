@@ -11,6 +11,7 @@ import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.Window;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -19,14 +20,20 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.imageio.ImageIO;
+import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class MapPanel
   extends Canvas {
+  private static final String SKULL = "\u2620";
+
   private static final int SCROLL_DIST = 25;
   private static final int LEFT = 1;
   private static final int RIGHT = 2;
@@ -72,9 +79,8 @@ public class MapPanel
     final int width, height;
     final int midX, midY;
 
-    // Only add unscaled when necessary; they aren't used as much.
-    int unscaledLeft, unscaledTop;
-    int unscaledWidth, unscaledHeight;
+    final int unscaledLeft, unscaledRight, unscaledTop, unscaledBottom;
+    final int unscaledWidth, unscaledHeight;
 
     public Corners(final Region r) {
       // TODO: If moving, move all regions with the same parent.
@@ -105,7 +111,9 @@ public class MapPanel
       midY = (int)(scale * (r.getY() + by + (r.h + bh) / 2) + off.y);
 
       unscaledLeft = r.getX() + (int)bx;
+      unscaledRight = r.getX() + (int)bx + (int)(width * invScale);
       unscaledTop = r.getY() + (int)by;
+      unscaledBottom = r.getY() + (int)by + (int)(height * invScale);
       unscaledWidth = (int)(width * invScale);
       unscaledHeight = (int)(height * invScale);
     }
@@ -116,6 +124,7 @@ public class MapPanel
   }
 
   final DMTool parent;
+  final Window parentWindow;
   final boolean isPlayer;
 
   final Color emptyMaskColor; // When there is no region.
@@ -144,8 +153,9 @@ public class MapPanel
     this.hm = hm;
   }
 
-  public MapPanel(final DMTool parent, final boolean isPlayer) {
+  public MapPanel(final DMTool parent, final Window parentWindow, final boolean isPlayer) {
     this.parent = parent;
+    this.parentWindow = parentWindow;
     this.isPlayer = isPlayer;
 
     if (isPlayer) {
@@ -190,7 +200,8 @@ public class MapPanel
         activeRegion.y += (int)(invScale * ym * dy);
         activeRegion.h += (int)(invScale * hm * dy);
         if (newRegion) {
-          activeRegion = parent.getRegions(isPlayer).addRegion(0, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
+          activeRegion = parent.getRegions(isPlayer).addRegion(0, activeRegion.x, activeRegion.y,
+                                                               activeRegion.w, activeRegion.h);
           newRegion = false;
         }
         parent.repaint();
@@ -198,8 +209,8 @@ public class MapPanel
 
       @Override
       public void mousePressed(final MouseEvent e) {
-        System.err
-          .println("Mouse pressed, button " + e.getButton() + " modifiers " + InputEvent.getModifiersExText(e.getModifiersEx()));
+        System.err.println("Mouse pressed, button " + e.getButton() + " modifiers " +
+                           InputEvent.getModifiersExText(e.getModifiersEx()));
         if (e.getButton() == 4) { // Wheel tilt left.
           scroll(LEFT, 1);
           return;
@@ -322,10 +333,8 @@ public class MapPanel
     addKeyListener(new KeyAdapter() {
       @Override
       public void keyPressed(final KeyEvent e) {
-        System.err.println("Key pressed " + e.getKeyCode() + " (" + e.getKeyChar() + ") modifiers " +
-                           InputEvent.getModifiersExText(e.getModifiersEx()));
-        System.err.println("Modifiers: " + e.getModifiersEx() + " (ctrl = " + InputEvent.CTRL_DOWN_MASK + ")");
-
+        System.err.println("Key pressed " + e.getKeyCode() + " (" + e.getKeyChar() +
+                           ") modifiers " + InputEvent.getModifiersExText(e.getModifiersEx()));
         if (e.getModifiersEx() == 0) {
           switch (e.getKeyCode()) {
             case KeyEvent.VK_R:
@@ -333,6 +342,18 @@ public class MapPanel
               newRegion = true;
               mouseStatus = NEW_REGION;
               setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+              break;
+            case KeyEvent.VK_A:
+              final NewAvatarDialog.AvatarSelectionResult result =
+                NewAvatarDialog.showDialog(parentWindow);
+              if (result != null) {
+                final Point mouse = windowToImageCoords(mx, my);
+                final Region r = parent.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, 40, 40);
+                r.isAvatar = true;
+                r.symbol = result.symbol;
+                r.color = result.color;
+              }
+              parent.repaint();
               break;
             case KeyEvent.VK_SPACE:
               if (activeRegion != null) {
@@ -376,6 +397,17 @@ public class MapPanel
             case KeyEvent.VK_Q:
               parent.quit();
               break;
+            case KeyEvent.VK_O: {
+              final JFileChooser chooser = new JFileChooser();
+              final FileNameExtensionFilter filter =
+                new FileNameExtensionFilter("Supported Images", ImageIO.getReaderFileSuffixes());
+              chooser.setFileFilter(filter);
+              final int result = chooser.showOpenDialog(parentWindow);
+              if (result == JFileChooser.APPROVE_OPTION) {
+                parent.newMap(chooser.getSelectedFile());
+              }
+              break;
+            }
           }
         }
       }
@@ -387,23 +419,40 @@ public class MapPanel
       mouseStatus = NEW_REGION;
       return;
     }
-    final double scale = parent.getScale(isPlayer);
-    boolean found = false;
-    for (final Region r : parent.getRegions(isPlayer).getRegions()) {
-      if (new Corners(r).contains(mx, my)) {
-        found = true;
-        activeRegion = r;
-        mouseStatus = determineMouseStatus(r);
-        repaint();
-        break;
-      }
+
+    final Region r = regionAt(mx, my);
+    if (r != null) {
+      activeRegion = r;
+      mouseStatus = determineMouseStatus(activeRegion);
     }
-    if (!found) {
-      repaint();
+    else {
       mouseStatus = OUT_OF_REGION;
       activeRegion = null;
     }
     setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+    repaint();
+  }
+
+  private Region regionAt(final int x, final int y) {
+    // Pick the most recently created region, preferring avatars over
+    // non-avatars.
+    Region avatar = null;
+    Region nonAvatar = null;
+    final double scale = parent.getScale(isPlayer);
+    for (final Region r : parent.getRegions(isPlayer).getRegions()) {
+      if (new Corners(r).contains(mx, my)) {
+        if (r.isAvatar) {
+          avatar = r;
+        }
+        else {
+          nonAvatar = r;
+        }
+      }
+    }
+    if (avatar != null) {
+      return avatar;
+    }
+    return nonAvatar;
   }
 
   Point windowToImageCoords(int x, int y) {
@@ -486,6 +535,43 @@ public class MapPanel
     parent.setScale(scale);
   }
 
+  public Image buildAvatars() {
+    final BufferedImage img = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_INT_ARGB);
+    final Graphics2D g = img.createGraphics();
+
+    // Mark every pixel as transparent.
+    g.setComposite(AlphaComposite.Src);
+    g.setColor(new Color(0, 0, 0, 0));
+    g.fillRect(0, 0, imgWidth, imgHeight);
+
+    for (final Region r : parent.getRegions(isPlayer).getRegions()) {
+      if (!r.isAvatar) {
+        continue;
+      }
+
+      // We need to draw unscaled regions because the mask is going to be scaled
+      // later.
+      final Corners c = new Corners(r);
+      g.setColor(r.color);
+      g.setFont(new Font(null, 0, (int)(1.25 * Math.min(c.unscaledWidth, c.unscaledHeight))));
+      Rectangle2D bounds = g.getFontMetrics().getStringBounds(Character.toString(r.symbol), g);
+      g.drawString(Character.toString(r.symbol),
+                   (int)(c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2),
+                   c.unscaledBottom);
+      if (r.isDead) {
+        g.setComposite(AlphaComposite.SrcOver);
+        g.setColor(new Color(255, 0, 0, 64));
+        bounds = g.getFontMetrics().getStringBounds(SKULL, g);
+        g.drawString(SKULL, (int)(c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2),
+                     c.unscaledBottom);
+
+        g.setComposite(AlphaComposite.Src);
+      }
+    }
+    g.dispose();
+    return img;
+  }
+
   public Image buildMask() {
     final BufferedImage img = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_INT_ARGB);
     final Graphics2D g = img.createGraphics();
@@ -496,6 +582,9 @@ public class MapPanel
     g.fillRect(0, 0, imgWidth, imgHeight);
 
     for (final Region r : parent.getRegions(isPlayer).getRegions()) {
+      if (r.isAvatar) {
+        continue;
+      }
       if (r.isVisible()) {
         g.setColor(new Color(0, 0, 0, 0)); // Make visible regions transparent.
       }
@@ -540,6 +629,7 @@ public class MapPanel
       g.drawImage(img, transform, this);
 
       g.setComposite(AlphaComposite.SrcOver);
+      g.drawImage(buildAvatars(), transform, this);
       g.drawImage(buildMask(), transform, this);
 
       if (isPlayer) {
