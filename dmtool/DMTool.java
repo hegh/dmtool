@@ -16,8 +16,6 @@ import javax.swing.SwingUtilities;
  *
  */
 public class DMTool {
-  private File directory;
-
   // The same image when presenting; player is cloned from DM when paused.
   private BufferedImage playerImage;
   private BufferedImage dmImage;
@@ -38,31 +36,11 @@ public class DMTool {
   private boolean paused = true;
   private File savePath;
 
-  private final Collection<DirectoryChangeListener> directoryChangeListeners = new ArrayList<>();
   private final Collection<PauseListener> pauseListeners = new ArrayList<>();
   private final Collection<ResumeListener> resumeListeners = new ArrayList<>();
   private final Collection<NewMapListener> newMapListeners = new ArrayList<>();
 
   DMTool() {
-  }
-
-  public void addDirectoryChangeListener(final DirectoryChangeListener listener) {
-    directoryChangeListeners.add(listener);
-  }
-
-  public void setDirectory(final File directory) {
-    this.directory = directory;
-    fireDirectoryChanged();
-  }
-
-  private void fireDirectoryChanged() {
-    directoryChangeListeners.forEach((final DirectoryChangeListener listener) -> {
-      listener.onDirectoryChange();
-    });
-  }
-
-  public File getDirectory() {
-    return directory;
   }
 
   public File getActiveSave() {
@@ -79,7 +57,6 @@ public class DMTool {
         playerWindow.setVisible(true);
         dmWindow.setVisible(true);
 
-        fireDirectoryChanged();
         if (dmImage != null) {
           fireNewMap();
         }
@@ -142,7 +119,8 @@ public class DMTool {
     }
     paused = true;
     if (dmImage != null) {
-      playerImage = new BufferedImage(dmImage.getColorModel(), dmImage.copyData(null), dmImage.isAlphaPremultiplied(), null);
+      playerImage = new BufferedImage(dmImage.getColorModel(), dmImage.copyData(null),
+                                      dmImage.isAlphaPremultiplied(), null);
     }
     playerRegions = dmRegions.clone();
     playerScale = dmScale;
@@ -224,10 +202,6 @@ public class DMTool {
   void quit() {
     // TODO: Offer to save if necessary
     System.exit(0);
-  }
-
-  public static interface DirectoryChangeListener {
-    void onDirectoryChange();
   }
 
   public static interface PauseListener {
