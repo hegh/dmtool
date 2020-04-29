@@ -16,13 +16,6 @@ public class Region {
   public Color color;
   public Integer fontSize; // Needs to be recalculated on resize.
 
-  public static enum State {
-    HIDDEN,
-    VISIBLE,
-  }
-
-  public State state = State.HIDDEN;
-
   public Region(final RegionGroup parent, final int x, final int y, final int w, final int h) {
     id = nextID;
     nextID++;
@@ -35,7 +28,7 @@ public class Region {
   }
 
   boolean isVisible() {
-    return state == State.VISIBLE;
+    return parent.isVisible();
   }
 
   void toggleState() {
@@ -43,12 +36,7 @@ public class Region {
       isDead = !isDead;
       return;
     }
-    if (state == State.VISIBLE) {
-      state = State.HIDDEN; // TODO: Switch to Fogged once implemented.
-    }
-    else {
-      state = State.VISIBLE;
-    }
+    parent.toggleState();
   }
 
   void adjustDims(final int dx, final int dy, final int dw, final int dh) {
@@ -94,7 +82,6 @@ public class Region {
   @Override
   public Region clone() {
     final Region copy = new Region(parent, x, y, w, h);
-    copy.state = state;
     return copy;
   }
 }
