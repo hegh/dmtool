@@ -47,6 +47,8 @@ public class MapPanel
   private static final Color DM_HIDDEN_MASK_COLOR = new Color(0, 0, 128, 128);
 
   private static final int HANDLE_SIZE = 6;
+  private static final Color HANDLE_COLOR = Color.red;
+  private static final Color LOCKED_HANDLE_COLOR = Color.blue;
 
   private static final int OUT_OF_REGION = 0;
   private static final int NW_CORNER = 1;
@@ -152,6 +154,7 @@ public class MapPanel
   // If true, activeRegion is being created.
   // If activeRegion is null, it will be created on mouse-down.
   boolean newRegion = false;
+  RegionGroup newRegionParent = null;
 
   Region activeRegion; // If in a region.
   int sx, sy; // Starting mouse coordinates for a resize or drag operation.
@@ -211,8 +214,12 @@ public class MapPanel
                                 (int)(invScale * wm * dx), (int)(invScale * hm * dy));
         activeRegion.fontSize = null;
         if (newRegion) {
-          activeRegion = parent.getRegions(isPlayer).addRegion(0, activeRegion.x, activeRegion.y,
-                                                               activeRegion.w, activeRegion.h);
+          int parentID = 0;
+          if (newRegionParent != null) {
+            parentID = newRegionParent.id;
+          }
+          activeRegion = parent.getRegions(isPlayer)
+            .addRegion(parentID, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
           newRegion = false;
         }
         parent.repaint();
@@ -240,7 +247,7 @@ public class MapPanel
         if (activeRegion == null && newRegion && e.getButton() == 1) {
           // Create a new region.
           final Point mouse = windowToImageCoords(mx, my);
-          activeRegion = new Region(null, mouse.x, mouse.y, 0, 0);
+          activeRegion = new Region(newRegionParent, mouse.x, mouse.y, 0, 0);
           sx = mx;
           sy = my;
           dragging = true;
@@ -350,6 +357,7 @@ public class MapPanel
         if (e.getModifiersEx() == 0) {
           switch (e.getKeyCode()) {
             case KeyEvent.VK_R:
+              newRegionParent = null;
               activeRegion = null;
               newRegion = true;
               mouseStatus = NEW_REGION;
@@ -409,7 +417,7 @@ public class MapPanel
             case KeyEvent.VK_Q:
               parent.quit();
               break;
-            case KeyEvent.VK_O: {
+            case KeyEvent.VK_N: {
               final JFileChooser chooser = new JFileChooser();
               final FileNameExtensionFilter filter =
                 new FileNameExtensionFilter("Supported Images", ImageIO.getReaderFileSuffixes());
@@ -420,6 +428,22 @@ public class MapPanel
               }
               break;
             }
+          }
+        }
+        else if ((e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) == InputEvent.SHIFT_DOWN_MASK) {
+          switch (e.getKeyCode()) {
+            case KeyEvent.VK_R:
+              if (activeRegion != null) {
+                newRegionParent = activeRegion.parent;
+              }
+              else {
+                newRegionParent = null;
+              }
+              activeRegion = null;
+              newRegion = true;
+              mouseStatus = NEW_REGION;
+              setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+              break;
           }
         }
       }
@@ -451,13 +475,15 @@ public class MapPanel
     Region avatar = null;
     Region nonAvatar = null;
     final double scale = parent.getScale(isPlayer);
-    for (final Region r : parent.getRegions(isPlayer).getRegions()) {
-      if (new Corners(r).contains(mx, my)) {
-        if (r.isAvatar) {
-          avatar = r;
-        }
-        else {
-          nonAvatar = r;
+    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+      for (final Region r : group.getChildren()) {
+        if (new Corners(r).contains(mx, my)) {
+          if (r.isAvatar) {
+            avatar = r;
+          }
+          else {
+            nonAvatar = r;
+          }
         }
       }
     }
@@ -555,69 +581,72 @@ public class MapPanel
     g.setComposite(AlphaComposite.Src);
     g.setColor(new Color(0, 0, 0, 0));
     g.fillRect(0, 0, imgWidth, imgHeight);
-    for (final Region r : parent.getRegions(isPlayer).getRegions()) {
-      if (!r.isAvatar) {
-        continue;
-      }
-
-      // We need to draw unscaled regions because the mask is going to be scaled
-      // later.
-      final Corners c = new Corners(r);
-      final String symbol = Character.toString(r.symbol);
-      g.setColor(r.color);
-      g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
-      int trySize = (int)(1.25 * Math.min(c.unscaledWidth, c.unscaledHeight));
-      int lastChange = 0;
-      while (r.fontSize == null && trySize > 1) {
-        g.setFont(new Font(null, 0, trySize));
-        final FontMetrics fontMetrics = g.getFontMetrics();
-        final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-        if (bounds.getWidth() > c.unscaledWidth || bounds.getHeight() > c.unscaledHeight) {
-          // Too big, try the next size down.
-          trySize--;
-          lastChange = -1;
+    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+      for (final Region r : group.getChildren()) {
+        if (!r.isAvatar) {
           continue;
         }
-        if (bounds.getWidth() < c.unscaledWidth && bounds.getHeight() < c.unscaledHeight) {
-          // Too small. Unless we just shrunk to this size because it was too
-          // big, try the next size up.
-          if (lastChange == -1) {
-            r.fontSize = trySize;
-            break;
+
+        // We need to draw unscaled regions because the mask is going to be
+        // scaled
+        // later.
+        final Corners c = new Corners(r);
+        final String symbol = Character.toString(r.symbol);
+        g.setColor(r.color);
+        g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
+        int trySize = (int)(1.25 * Math.min(c.unscaledWidth, c.unscaledHeight));
+        int lastChange = 0;
+        while (r.fontSize == null && trySize > 1) {
+          g.setFont(new Font(null, 0, trySize));
+          final FontMetrics fontMetrics = g.getFontMetrics();
+          final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+          if (bounds.getWidth() > c.unscaledWidth || bounds.getHeight() > c.unscaledHeight) {
+            // Too big, try the next size down.
+            trySize--;
+            lastChange = -1;
+            continue;
           }
-          trySize++;
-          lastChange = 1;
-          continue;
+          if (bounds.getWidth() < c.unscaledWidth && bounds.getHeight() < c.unscaledHeight) {
+            // Too small. Unless we just shrunk to this size because it was too
+            // big, try the next size up.
+            if (lastChange == -1) {
+              r.fontSize = trySize;
+              break;
+            }
+            trySize++;
+            lastChange = 1;
+            continue;
+          }
+
+          // One dimension must be equal, so don't change any more.
+          r.fontSize = trySize;
+          break;
+        }
+        if (r.fontSize == null) {
+          r.fontSize = 1;
         }
 
-        // One dimension must be equal, so don't change any more.
-        r.fontSize = trySize;
-        break;
-      }
-      if (r.fontSize == null) {
-        r.fontSize = 1;
-      }
+        // Center the symbol in the region, adjusting for descent.
+        g.setFont(new Font(null, 0, r.fontSize));
+        final FontMetrics fontMetrics = g.getFontMetrics();
+        final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
+        final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+        final double x = c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2;
+        final double y =
+          c.unscaledBottom - lineMetrics.getDescent() - (c.unscaledHeight - bounds.getHeight()) / 2;
+        g.drawString(Character.toString(r.symbol), (int)x, (int)y);
+        if (r.isDead) {
+          g.setComposite(AlphaComposite.SrcOver);
+          g.setColor(new Color(128, 0, 0, 192));
+          final LineMetrics skullMetrics = fontMetrics.getLineMetrics(SKULL, g);
+          final Rectangle2D skullBounds = fontMetrics.getStringBounds(SKULL, g);
+          final double skullX = c.unscaledLeft + (c.unscaledWidth - skullBounds.getWidth()) / 2;
+          final double skullY = c.unscaledBottom - skullMetrics.getDescent() -
+                                (c.unscaledHeight - skullBounds.getHeight()) / 2;
+          g.drawString(SKULL, (int)skullX, (int)skullY);
 
-      // Center the symbol in the region, adjusting for descent.
-      g.setFont(new Font(null, 0, r.fontSize));
-      final FontMetrics fontMetrics = g.getFontMetrics();
-      final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
-      final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-      final double x = c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2;
-      final double y =
-        c.unscaledBottom - lineMetrics.getDescent() - (c.unscaledHeight - bounds.getHeight()) / 2;
-      g.drawString(Character.toString(r.symbol), (int)x, (int)y);
-      if (r.isDead) {
-        g.setComposite(AlphaComposite.SrcOver);
-        g.setColor(new Color(128, 0, 0, 192));
-        final LineMetrics skullMetrics = fontMetrics.getLineMetrics(SKULL, g);
-        final Rectangle2D skullBounds = fontMetrics.getStringBounds(SKULL, g);
-        final double skullX = c.unscaledLeft + (c.unscaledWidth - skullBounds.getWidth()) / 2;
-        final double skullY = c.unscaledBottom - skullMetrics.getDescent() -
-                              (c.unscaledHeight - skullBounds.getHeight()) / 2;
-        g.drawString(SKULL, (int)skullX, (int)skullY);
-
-        g.setComposite(AlphaComposite.Src);
+          g.setComposite(AlphaComposite.Src);
+        }
       }
     }
     g.dispose();
@@ -633,21 +662,25 @@ public class MapPanel
     g.setColor(emptyMaskColor);
     g.fillRect(0, 0, imgWidth, imgHeight);
 
-    for (final Region r : parent.getRegions(isPlayer).getRegions()) {
-      if (r.isAvatar) {
-        continue;
-      }
-      if (r.isVisible()) {
-        g.setColor(new Color(0, 0, 0, 0)); // Make visible regions transparent.
-      }
-      else {
-        g.setColor(hiddenMaskColor);
-      }
+    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+      for (final Region r : group.getChildren()) {
+        if (r.isAvatar) {
+          continue;
+        }
+        if (r.isVisible()) {
+          g.setColor(new Color(0, 0, 0, 0)); // Make visible regions
+                                             // transparent.
+        }
+        else {
+          g.setColor(hiddenMaskColor);
+        }
 
-      // We need to draw unscaled regions because the mask is going to be scaled
-      // later.
-      final Corners c = new Corners(r);
-      g.fillRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
+        // We need to draw unscaled regions because the mask is going to be
+        // scaled
+        // later.
+        final Corners c = new Corners(r);
+        g.fillRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
+      }
     }
     if (newRegion && activeRegion != null) {
       g.setColor(hiddenMaskColor);
@@ -689,7 +722,15 @@ public class MapPanel
       }
 
       if (activeRegion != null) {
-        drawCorners(g, activeRegion);
+        if (activeRegion.parent != null) {
+          for (final Region r : activeRegion.parent.getChildren()) {
+            if (r == activeRegion) {
+              continue;
+            }
+            drawCorners(g, LOCKED_HANDLE_COLOR, r);
+          }
+        }
+        drawCorners(g, HANDLE_COLOR, activeRegion);
         drawControls(g, activeRegion);
       }
 
@@ -724,7 +765,9 @@ public class MapPanel
         g.drawString("PAUSED", 25, 50);
       }
     }
-    finally {
+    finally
+
+    {
       g.dispose();
       getBufferStrategy().show();
     }
@@ -735,18 +778,18 @@ public class MapPanel
     paint(g);
   }
 
-  private void drawCorners(final Graphics2D g, final Region r) {
+  private void drawCorners(final Graphics2D g, final Color color, final Region r) {
     final Corners c = new Corners(r);
     final int hs = HANDLE_SIZE;
     final int hhs = HANDLE_SIZE / 2;
-    drawHandle(g, c.left, c.top); // Upper-left.
-    drawHandle(g, c.right - hs, c.top); // Upper-right.
-    drawHandle(g, c.left, c.bottom - hs); // Lower-left.
-    drawHandle(g, c.right - hs, c.bottom - hs); // Lower-right.
-    drawHandle(g, c.midX - hhs, c.top); // Top.
-    drawHandle(g, c.midX - hhs, c.bottom - hs); // Bottom.
-    drawHandle(g, c.left, c.midY - hhs); // Left.
-    drawHandle(g, c.right - hs, c.midY - hhs); // Right.
+    drawHandle(g, color, c.left, c.top); // Upper-left.
+    drawHandle(g, color, c.right - hs, c.top); // Upper-right.
+    drawHandle(g, color, c.left, c.bottom - hs); // Lower-left.
+    drawHandle(g, color, c.right - hs, c.bottom - hs); // Lower-right.
+    drawHandle(g, color, c.midX - hhs, c.top); // Top.
+    drawHandle(g, color, c.midX - hhs, c.bottom - hs); // Bottom.
+    drawHandle(g, color, c.left, c.midY - hhs); // Left.
+    drawHandle(g, color, c.right - hs, c.midY - hhs); // Right.
   }
 
   private int determineMouseStatus(final Region r) {
@@ -785,8 +828,8 @@ public class MapPanel
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  private void drawHandle(final Graphics2D g, final int x, final int y) {
-    g.setColor(Color.red);
+  private void drawHandle(final Graphics2D g, final Color color, final int x, final int y) {
+    g.setColor(color);
     g.fillRect(x, y, HANDLE_SIZE, HANDLE_SIZE);
   }
 

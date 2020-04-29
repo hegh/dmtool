@@ -2,6 +2,7 @@
 package dmtool;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,11 +12,9 @@ import java.util.Map;
  */
 public class Regions {
   private final Map<Integer, RegionGroup> groups = new HashMap<>();
-  private final Map<Integer, Region> regions = new HashMap<>();
 
   public void clear() {
     groups.clear();
-    regions.clear();
   }
 
   // Pass 0 to create a new region group.
@@ -28,40 +27,33 @@ public class Regions {
     else {
       parent = groups.get(parentID);
       if (parent == null) {
-        throw new NullPointerException("no such region group: " + parentID);
+        throw new IllegalArgumentException("no such region group: " + parentID);
       }
     }
-
-    final Region region = new Region(parent, x, y, w, h);
-    regions.put(region.id, region);
-    return region;
+    return parent.addChild(x, y, w, h);
   }
 
   public void removeRegion(final int id) {
-    regions.remove(id);
+    final RegionGroup parent = groups.get(id);
+    if (parent == null) {
+      return;
+    }
+    parent.removeChild(id);
+    if (parent.children.isEmpty()) {
+      groups.remove(parent.id);
+    }
   }
 
-  public Collection<Region> getRegions() {
-    return regions.values();
+  public Collection<RegionGroup> getGroups() {
+    return Collections.unmodifiableCollection(groups.values());
   }
 
   @Override
   public Regions clone() {
     final Regions n = new Regions();
-
-    // Old ID onto copied value.
-    final Map<Integer, RegionGroup> g = new HashMap<>();
-    for (final RegionGroup group : groups.values()) {
+    for (final RegionGroup group : getGroups()) {
       final RegionGroup copy = group.clone();
-      g.put(group.id, copy);
       n.groups.put(copy.id, copy);
-    }
-
-    // Copy regions, re-parenting to copied parents.
-    for (final Region region : regions.values()) {
-      final Region copy = region.clone();
-      copy.parent = g.get(region.parent.id);
-      n.regions.put(copy.id, copy);
     }
     return n;
   }
