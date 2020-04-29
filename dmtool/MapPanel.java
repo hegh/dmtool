@@ -102,22 +102,32 @@ public class MapPanel
         by = invScale * ym * dy;
         bh = invScale * hm * dy;
       }
+
+      // Compute raw, unscaled corners of the region, and normalize to positive
+      // width/height.
+      final double rWidth = Math.abs(r.getW() + bw);
+      final double rHeight = Math.abs(r.getH() + bh);
+      final double rLeft = Math.min(r.getX() + bx, r.getX() + bx + r.getW() + bw);
+      final double rRight = Math.max(r.getX() + bx, r.getX() + bx + r.getW() + bw);
+      final double rTop = Math.min(r.getY() + by, r.getY() + by + r.getH() + bh);
+      final double rBottom = Math.max(r.getY() + by, r.getY() + by + r.getH() + bh);
+
+      unscaledLeft = (int)rLeft;
+      unscaledRight = (int)rRight;
+      unscaledTop = (int)rTop;
+      unscaledBottom = (int)rBottom;
+      unscaledWidth = (int)rWidth;
+      unscaledHeight = (int)rHeight;
+
       final Point off = parent.getOffset(isPlayer);
-      left = (int)(scale * (r.getX() + bx) + off.x);
-      right = (int)(scale * (r.getX() + r.w + bx + bw) + off.x);
-      top = (int)(scale * (r.getY() + by) + off.y);
-      bottom = (int)(scale * (r.getY() + r.h + by + bh) + off.y);
+      left = (int)(off.x + scale * rLeft);
+      right = (int)(off.x + scale * rRight);
+      top = (int)(off.y + scale * rTop);
+      bottom = (int)(off.y + scale * rBottom);
       width = right - left;
       height = bottom - top;
-      midX = (int)(scale * (r.getX() + bx + (r.w + bw) / 2) + off.x);
-      midY = (int)(scale * (r.getY() + by + (r.h + bh) / 2) + off.y);
-
-      unscaledLeft = r.getX() + (int)bx;
-      unscaledRight = r.getX() + (int)bx + (int)(width * invScale);
-      unscaledTop = r.getY() + (int)by;
-      unscaledBottom = r.getY() + (int)by + (int)(height * invScale);
-      unscaledWidth = (int)(width * invScale);
-      unscaledHeight = (int)(height * invScale);
+      midX = (left + right) / 2;
+      midY = (top + bottom) / 2;
     }
 
     public boolean contains(final int x, final int y) {
@@ -197,10 +207,8 @@ public class MapPanel
         final int dy = my - sy;
         final double invScale = 1.0 / parent.getScale(isPlayer);
         dragging = false;
-        activeRegion.x += (int)(invScale * xm * dx);
-        activeRegion.w += (int)(invScale * wm * dx);
-        activeRegion.y += (int)(invScale * ym * dy);
-        activeRegion.h += (int)(invScale * hm * dy);
+        activeRegion.adjustDims((int)(invScale * xm * dx), (int)(invScale * ym * dy),
+                                (int)(invScale * wm * dx), (int)(invScale * hm * dy));
         activeRegion.fontSize = null;
         if (newRegion) {
           activeRegion = parent.getRegions(isPlayer).addRegion(0, activeRegion.x, activeRegion.y,

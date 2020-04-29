@@ -51,20 +51,39 @@ public class Region {
     }
   }
 
+  void adjustDims(final int dx, final int dy, final int dw, final int dh) {
+    final int ox = getX();
+    final int oy = getY();
+    final int ow = getW();
+    final int oh = getH();
+    x = ox + dx;
+    y = oy + dy;
+    w = ow + dw;
+    h = oh + dh;
+  }
+
   int getX() {
     int x = this.x;
-    if (parent != null) {
-      x += parent.x;
+    if (w < 0) {
+      x += w;
     }
     return x;
   }
 
   int getY() {
     int y = this.y;
-    if (parent != null) {
-      y += parent.y;
+    if (h < 0) {
+      y += h;
     }
     return y;
+  }
+
+  int getW() {
+    return Math.abs(w);
+  }
+
+  int getH() {
+    return Math.abs(h);
   }
 
   boolean scaledContains(final double scale, final int x, final int y) {
