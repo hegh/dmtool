@@ -14,6 +14,7 @@ public class Region {
   public boolean isDead;
   public char symbol;
   public Color color;
+  public Integer fontSize; // Needs to be recalculated on resize.
 
   public static enum State {
     HIDDEN,

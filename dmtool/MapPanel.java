@@ -6,6 +6,7 @@ import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -19,6 +20,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
+import java.awt.font.LineMetrics;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
@@ -199,6 +201,7 @@ public class MapPanel
         activeRegion.w += (int)(invScale * wm * dx);
         activeRegion.y += (int)(invScale * ym * dy);
         activeRegion.h += (int)(invScale * hm * dy);
+        activeRegion.fontSize = null;
         if (newRegion) {
           activeRegion = parent.getRegions(isPlayer).addRegion(0, activeRegion.x, activeRegion.y,
                                                                activeRegion.w, activeRegion.h);
@@ -287,6 +290,7 @@ public class MapPanel
         if (dragging) {
           mx = e.getX();
           my = e.getY();
+          activeRegion.fontSize = null;
           repaint();
         }
       }
@@ -543,7 +547,6 @@ public class MapPanel
     g.setComposite(AlphaComposite.Src);
     g.setColor(new Color(0, 0, 0, 0));
     g.fillRect(0, 0, imgWidth, imgHeight);
-
     for (final Region r : parent.getRegions(isPlayer).getRegions()) {
       if (!r.isAvatar) {
         continue;
@@ -552,18 +555,59 @@ public class MapPanel
       // We need to draw unscaled regions because the mask is going to be scaled
       // later.
       final Corners c = new Corners(r);
+      final String symbol = Character.toString(r.symbol);
       g.setColor(r.color);
-      g.setFont(new Font(null, 0, (int)(1.25 * Math.min(c.unscaledWidth, c.unscaledHeight))));
-      Rectangle2D bounds = g.getFontMetrics().getStringBounds(Character.toString(r.symbol), g);
-      g.drawString(Character.toString(r.symbol),
-                   (int)(c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2),
-                   c.unscaledBottom);
+      g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
+      int trySize = (int)(1.25 * Math.min(c.unscaledWidth, c.unscaledHeight));
+      int lastChange = 0;
+      while (r.fontSize == null && trySize > 1) {
+        g.setFont(new Font(null, 0, trySize));
+        final FontMetrics fontMetrics = g.getFontMetrics();
+        final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+        if (bounds.getWidth() > c.unscaledWidth || bounds.getHeight() > c.unscaledHeight) {
+          // Too big, try the next size down.
+          trySize--;
+          lastChange = -1;
+          continue;
+        }
+        if (bounds.getWidth() < c.unscaledWidth && bounds.getHeight() < c.unscaledHeight) {
+          // Too small. Unless we just shrunk to this size because it was too
+          // big, try the next size up.
+          if (lastChange == -1) {
+            r.fontSize = trySize;
+            break;
+          }
+          trySize++;
+          lastChange = 1;
+          continue;
+        }
+
+        // One dimension must be equal, so don't change any more.
+        r.fontSize = trySize;
+        break;
+      }
+      if (r.fontSize == null) {
+        r.fontSize = 1;
+      }
+
+      // Center the symbol in the region, adjusting for descent.
+      g.setFont(new Font(null, 0, r.fontSize));
+      final FontMetrics fontMetrics = g.getFontMetrics();
+      final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
+      final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+      final double x = c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2;
+      final double y =
+        c.unscaledBottom - lineMetrics.getDescent() - (c.unscaledHeight - bounds.getHeight()) / 2;
+      g.drawString(Character.toString(r.symbol), (int)x, (int)y);
       if (r.isDead) {
         g.setComposite(AlphaComposite.SrcOver);
-        g.setColor(new Color(255, 0, 0, 64));
-        bounds = g.getFontMetrics().getStringBounds(SKULL, g);
-        g.drawString(SKULL, (int)(c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2),
-                     c.unscaledBottom);
+        g.setColor(new Color(128, 0, 0, 192));
+        final LineMetrics skullMetrics = fontMetrics.getLineMetrics(SKULL, g);
+        final Rectangle2D skullBounds = fontMetrics.getStringBounds(SKULL, g);
+        final double skullX = c.unscaledLeft + (c.unscaledWidth - skullBounds.getWidth()) / 2;
+        final double skullY = c.unscaledBottom - skullMetrics.getDescent() -
+                              (c.unscaledHeight - skullBounds.getHeight()) / 2;
+        g.drawString(SKULL, (int)skullX, (int)skullY);
 
         g.setComposite(AlphaComposite.Src);
       }
