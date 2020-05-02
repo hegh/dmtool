@@ -320,6 +320,9 @@ public class MapPanel
 
     addMouseWheelListener((final MouseWheelEvent e) -> {
       // TODO: Test whether scrolling/zooming while dragging works.
+      System.err.println("Mouse wheel " + e.getWheelRotation() + " with modifiers " +
+                         InputEvent.getModifiersExText(e.getModifiersEx()) +
+                         " with param string \"" + e.paramString() + "\"");
       if (e.getModifiersEx() == 0) {
         scroll(DOWN, e.getWheelRotation());
       }
