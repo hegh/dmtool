@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package dmproto;
+
+option java_package = "dmproto";
+option java_outer_classname = "DMProto";
+
+// Every save file is a Zip archive, and MUST contain a 'version' file at the
+// root with a serialized Version proto indicating the save file format version.
+message Version {
+  // The string "DMTool Map" to indicate what this save file represents.
+  string format = 1;
+
+  // Save file version. Starts at 1.
+  int32 version = 2;
+}
+
+// Save file format v1 consists of:
+//  * A 'metadata' file with a singular 'contents' string naming a subdirectory.
+//    Usually this directory will be named '1', but that is not required.
+//  * A subdirectory containing:
+//    * A map.png file with the map image.
+//    * A data.pb file with a serialized Map message.
+//
+// The format is done this way so that v2 can make the 'contents' field repeated
+// to provide quick access to many maps meant to go together.
+message Metadata {
+  string contents = 1;
+}
+
+// A Map message describes the regions and avatars to apply to the paired map.
+message Map {
+  // If locked, regions cannot be moved/resized/deleted, only
+  // visibility-toggled.
+  // Avatars retain full control.
+  bool locked = 1;
+  repeated Group region_group = 2;
+  repeated Avatar avatar = 3;
+}
+
+// A group message represents a group of regions that share visibility.
+// Avatars cannot be grouped.
+message Group {
+  enum State {
+    // If hidden, the player cannot see the map in this area.
+    HIDDEN = 0;
+    // If visible, the player can see the map and avatars in this area.
+    VISIBLE = 1;
+    // If fogged, the player can see the map but not the avatars in this area.
+    FOGGED = 2;
+  };
+  State visibility = 1;
+  repeated Region region = 2;
+}
+
+message Region {
+  Rect rect = 1;
+}
+
+// A Avatar message represents a single avatar.
+message Avatar {
+  bool is_dead = 1;
+  string symbol = 2;  // Must be a single character.
+  RGBColor color = 3;
+  Rect rect = 4;
+}
+
+// A Rect message represents a rectangle on the map.
+message Rect {
+  int32 x = 1;
+  int32 y = 2;
+  int32 w = 3;
+  int32 h = 4;
+}
+
+// An RGBColor represents a color in the red-green-blue colorspace.
+message RGBColor {
+  int32 r = 1;
+  int32 g = 2;
+  int32 b = 3;
+}

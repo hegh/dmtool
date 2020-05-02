@@ -24,11 +24,14 @@ import java.awt.font.LineMetrics;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -89,8 +92,6 @@ public class MapPanel
     final int unscaledWidth, unscaledHeight;
 
     public Corners(final Region r) {
-      // TODO: If moving, move all regions with the same parent.
-      // Shortcuts.
       final double scale = parent.getScale(isPlayer);
       final double invScale = 1.0 / scale;
       double bx = 0;
@@ -397,7 +398,7 @@ public class MapPanel
               break;
           }
         }
-        else if ((e.getModifiersEx() & InputEvent.CTRL_DOWN_MASK) == InputEvent.CTRL_DOWN_MASK) {
+        else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
           switch (e.getKeyCode()) {
             case KeyEvent.VK_Q:
               quitCommand();
@@ -405,15 +406,28 @@ public class MapPanel
             case KeyEvent.VK_N:
               newMapCommand();
               break;
+            case KeyEvent.VK_S:
+              saveCommand();
+              break;
+            case KeyEvent.VK_O:
+              openCommand();
+              break;
           }
         }
-        else if ((e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) == InputEvent.SHIFT_DOWN_MASK) {
+        else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
           switch (e.getKeyCode()) {
             case KeyEvent.VK_R:
               newRegionCommand(/* isSibling = */ true);
               break;
             case KeyEvent.VK_D:
               duplicateRegionCommand(/* isSibling = */ true);
+              break;
+          }
+        }
+        else if (e.getModifiersEx() == (InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
+          switch (e.getKeyCode()) {
+            case KeyEvent.VK_S:
+              saveAsCommand();
               break;
           }
         }
@@ -426,13 +440,86 @@ public class MapPanel
   }
 
   private void newMapCommand() {
-    final JFileChooser chooser = new JFileChooser();
+    final JFileChooser chooser = new JFileChooser(parent.getDirectory());
     final FileNameExtensionFilter filter =
       new FileNameExtensionFilter("Supported Images", ImageIO.getReaderFileSuffixes());
     chooser.setFileFilter(filter);
     final int result = chooser.showOpenDialog(parentWindow);
-    if (result == JFileChooser.APPROVE_OPTION) {
+    parent.setDirectory(chooser.getCurrentDirectory());
+    if (result != JFileChooser.APPROVE_OPTION) {
+      System.err.println("Chose dis-approval option " + result);
+      return;
+    }
+    try {
       parent.newMap(chooser.getSelectedFile());
+    }
+    catch (final IOException e) {
+      JOptionPane.showMessageDialog(parentWindow, "Failed to load image: " + e.getMessage(),
+                                    "Load Error", JOptionPane.ERROR_MESSAGE);
+      System.err.println("Failed to load image from \"" + chooser.getSelectedFile() + "\"");
+      e.printStackTrace();
+      return;
+    }
+  }
+
+  private void saveCommand() {
+    if (parent.getActiveSave() == null) {
+      saveAsCommand();
+      return;
+    }
+    try {
+      parent.save(parent.getActiveSave());
+      System.err.println("Saved to \"" + parent.getActiveSave() + "\"");
+    }
+    catch (final IOException e) {
+      JOptionPane.showMessageDialog(parentWindow, "Failed to save file: " + e.getMessage(),
+                                    "Save Error", JOptionPane.ERROR_MESSAGE);
+      System.err.println("Failed to write save file \"" + parent.getActiveSave() + "\"");
+      e.printStackTrace();
+    }
+  }
+
+  private void saveAsCommand() {
+    final JFileChooser chooser = new JFileChooser(parent.getDirectory());
+    final FileNameExtensionFilter filter =
+      new FileNameExtensionFilter("Saved Maps", DMTool.SAVE_FILE_EXTENSION);
+    chooser.setFileFilter(filter);
+    chooser.setSelectedFile(parent.getActiveSave());
+    final int result = chooser.showSaveDialog(parentWindow);
+    parent.setDirectory(chooser.getCurrentDirectory());
+    if (result != JFileChooser.APPROVE_OPTION) {
+      System.err.println("Chose dis-approval option " + result);
+      return;
+    }
+
+    File file = chooser.getSelectedFile();
+    if (!file.getName().endsWith(".dmap")) {
+      file = new File(file.getPath() + ".dmap");
+    }
+    parent.setActiveSave(file);
+    saveCommand();
+  }
+
+  private void openCommand() {
+    final JFileChooser chooser = new JFileChooser(parent.getDirectory());
+    final FileNameExtensionFilter filter =
+      new FileNameExtensionFilter("Saved Maps", DMTool.SAVE_FILE_EXTENSION);
+    chooser.setFileFilter(filter);
+    final int result = chooser.showOpenDialog(parentWindow);
+    parent.setDirectory(chooser.getCurrentDirectory());
+    if (result != JFileChooser.APPROVE_OPTION) {
+      System.err.println("Chose dis-approval option " + result);
+      return;
+    }
+    try {
+      parent.open(chooser.getSelectedFile());
+      System.err.println("Loaded \"" + chooser.getSelectedFile() + "\"");
+    }
+    catch (final IOException e) {
+      JOptionPane.showMessageDialog(parentWindow, "Failed to load file: " + e.getMessage(),
+                                    "Open Error", JOptionPane.ERROR_MESSAGE);
+      System.err.println("Failed to read save file \"" + chooser.getSelectedFile() + "\"");
+      e.printStackTrace();
     }
   }
 
@@ -719,8 +806,8 @@ public class MapPanel
           continue;
         }
         if (r.isVisible()) {
-          g.setColor(new Color(0, 0, 0, 0)); // Make visible regions
-                                             // transparent.
+          // Make visible regions transparent.
+          g.setColor(new Color(0, 0, 0, 0));
         }
         else {
           g.setColor(hiddenMaskColor);
@@ -816,9 +903,7 @@ public class MapPanel
         g.drawString("PAUSED", 25, 50);
       }
     }
-    finally
-
-    {
+    finally {
       g.dispose();
       getBufferStrategy().show();
     }
@@ -885,5 +970,6 @@ public class MapPanel
   }
 
   private void drawControls(final Graphics2D g, final Region r) {
+    // TODO: Draw controls in the region.
   }
 }

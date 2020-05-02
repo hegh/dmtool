@@ -6,12 +6,51 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import dmproto.DMProto;
+
 /**
  * A collection of regions and region groups that supports the clone operation,
  * to take a snapshot.
  */
 public class Regions {
   private final Map<Integer, RegionGroup> groups = new HashMap<>();
+
+  @Override
+  public Regions clone() {
+    final Regions n = new Regions();
+    for (final RegionGroup group : getGroups()) {
+      final RegionGroup copy = group.clone();
+      n.groups.put(copy.id, copy);
+    }
+    return n;
+  }
+
+  public DMProto.Map serialize() {
+    final DMProto.Map.Builder map = DMProto.Map.newBuilder();
+    for (final RegionGroup group : groups.values()) {
+      group.serializeInto(map);
+    }
+    return map.build();
+  }
+
+  public void load(final DMProto.Map map) {
+    clear();
+    // TODO: Support locked regions.
+    for (final DMProto.Group group : map.getRegionGroupList()) {
+      final RegionGroup rg = new RegionGroup();
+      rg.load(group);
+      groups.put(rg.id, rg);
+    }
+    for (final DMProto.Avatar avatar : map.getAvatarList()) {
+      final RegionGroup rg = new RegionGroup();
+      groups.put(rg.id, rg);
+
+      final Region r = new Region();
+      r.parent = rg;
+      r.load(avatar);
+      rg.addChild(r);
+    }
+  }
 
   public void clear() {
     groups.clear();
@@ -88,15 +127,5 @@ public class Regions {
 
   public Collection<RegionGroup> getGroups() {
     return Collections.unmodifiableCollection(groups.values());
-  }
-
-  @Override
-  public Regions clone() {
-    final Regions n = new Regions();
-    for (final RegionGroup group : getGroups()) {
-      final RegionGroup copy = group.clone();
-      n.groups.put(copy.id, copy);
-    }
-    return n;
   }
 }

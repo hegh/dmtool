@@ -3,6 +3,8 @@ package dmtool;
 
 import java.awt.Color;
 
+import dmproto.DMProto;
+
 public class Region {
   private static int nextID = 1;
   public RegionGroup parent;
@@ -20,6 +22,23 @@ public class Region {
   // Do not clone this property.
   int nextDupPosition = 0;
 
+  @Override
+  public Region clone() {
+    final Region copy = new Region(parent, x, y, w, h);
+    copy.isAvatar = isAvatar;
+    copy.isDead = isDead;
+    copy.symbol = symbol;
+    copy.color = color;
+    copy.fontSize = fontSize;
+    parent.addChild(copy);
+    return copy;
+  }
+
+  public Region() {
+    id = nextID;
+    nextID++;
+  }
+
   public Region(final RegionGroup parent, final int x, final int y, final int w, final int h) {
     id = nextID;
     nextID++;
@@ -29,6 +48,65 @@ public class Region {
     this.y = y;
     this.w = w;
     this.h = h;
+  }
+
+  public DMProto.Region serializeAsRegion() {
+    final DMProto.Region.Builder region = DMProto.Region.newBuilder();
+    region.setRect(serializeRect());
+    return region.build();
+  }
+
+  public void load(final DMProto.Region region) {
+    load(region.getRect());
+  }
+
+  public DMProto.Avatar serializeAsAvatar() {
+    final DMProto.Avatar.Builder avatar = DMProto.Avatar.newBuilder();
+    avatar.setIsDead(isDead);
+    avatar.setSymbol(Character.toString(symbol));
+    avatar.setColor(serializeColor());
+    avatar.setRect(serializeRect());
+    return avatar.build();
+  }
+
+  public void load(final DMProto.Avatar avatar) {
+    isDead = avatar.getIsDead();
+    if (avatar.getSymbol().length() == 0) {
+      symbol = '?';
+    }
+    else {
+      symbol = avatar.getSymbol().charAt(0);
+    }
+    load(avatar.getColor());
+    load(avatar.getRect());
+  }
+
+  private DMProto.RGBColor serializeColor() {
+    return DMProto.RGBColor.newBuilder() //
+      .setR(color.getRed()) //
+      .setG(color.getGreen()) //
+      .setB(color.getBlue()) //
+      .build();
+  }
+
+  private void load(final DMProto.RGBColor c) {
+    color = new Color(c.getR(), c.getG(), c.getB());
+  }
+
+  private DMProto.Rect serializeRect() {
+    return DMProto.Rect.newBuilder() //
+      .setX(getX()) //
+      .setY(getY()) //
+      .setW(getW()) //
+      .setH(getH()) //
+      .build();
+  }
+
+  private void load(final DMProto.Rect r) {
+    x = r.getX();
+    y = r.getY();
+    w = r.getW();
+    h = r.getH();
   }
 
   boolean isVisible() {
@@ -81,17 +159,5 @@ public class Region {
   boolean scaledContains(final double scale, final int x, final int y) {
     return scale * getX() <= x && x <= scale * (getX() + w) && scale * getY() <= y &&
            y <= scale * (getY() + h);
-  }
-
-  @Override
-  public Region clone() {
-    final Region copy = new Region(parent, x, y, w, h);
-    copy.isAvatar = isAvatar;
-    copy.isDead = isDead;
-    copy.symbol = symbol;
-    copy.color = color;
-    copy.fontSize = fontSize;
-    parent.addChild(copy);
-    return copy;
   }
 }

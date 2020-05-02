@@ -1,21 +1,30 @@
 
 package dmtool;
 
-import java.awt.Image;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
+
+import dmproto.DMProto;
 
 /**
  *
  */
 public class DMTool {
+  public static final String SAVE_FILE_EXTENSION = "dmap";
+  private static final String SAVE_FILE_FORMAT = "DMTool Map";
+
   // The same image when presenting; player is cloned from DM when paused.
   private BufferedImage playerImage;
   private BufferedImage dmImage;
@@ -35,6 +44,7 @@ public class DMTool {
 
   private boolean paused = true;
   private File savePath;
+  private File directory; // Where the file chooser last was.
 
   private final Collection<PauseListener> pauseListeners = new ArrayList<>();
   private final Collection<ResumeListener> resumeListeners = new ArrayList<>();
@@ -45,6 +55,18 @@ public class DMTool {
 
   public File getActiveSave() {
     return savePath;
+  }
+
+  public void setActiveSave(final File file) {
+    savePath = file;
+  }
+
+  public File getDirectory() {
+    return directory;
+  }
+
+  public void setDirectory(final File dir) {
+    directory = dir;
   }
 
   void run() {
@@ -76,7 +98,7 @@ public class DMTool {
     return dmWindow;
   }
 
-  Image getImage(final boolean isPlayer) {
+  BufferedImage getImage(final boolean isPlayer) {
     if (isPlayer && paused) {
       return playerImage;
     }
@@ -174,18 +196,9 @@ public class DMTool {
     newMapListeners.add(listener);
   }
 
-  void newMap(final File f) {
-    BufferedImage img;
-    try {
-      img = ImageIO.read(f);
-    }
-    catch (final IOException e) {
-      img = null;
-      // TODO: Display error message.
-      System.err.println(e.getMessage());
-      return;
-    }
-
+  void newMap(final File f)
+    throws IOException {
+    final BufferedImage img = ImageIO.read(f);
     System.err.println("Loaded " + img.getWidth() + "x" + img.getHeight() + " image file: " + f);
     pause();
     savePath = null;
@@ -200,10 +213,95 @@ public class DMTool {
     });
   }
 
-  void open(final File f) {
-    // TODO: Open save
-    // TODO: Send NewMap event
-    savePath = f;
+  void save(final File path)
+    throws IOException {
+    if (dmRegions == null || dmImage == null) {
+      throw new IllegalStateException("No open map");
+    }
+
+    final OutputStream out = new FileOutputStream(path);
+    final ZipOutputStream zip = new ZipOutputStream(out);
+    try {
+      zip.setLevel(9);
+      final ZipEntry version = new ZipEntry("version");
+      zip.putNextEntry(version);
+      zip.write(DMProto.Version.newBuilder().setFormat(SAVE_FILE_FORMAT).setVersion(1).build()
+        .toByteArray());
+
+      final ZipEntry metadata = new ZipEntry("metadata");
+      zip.putNextEntry(metadata);
+      zip.write(DMProto.Metadata.newBuilder().setContents("1").build().toByteArray());
+
+      final ZipEntry one = new ZipEntry("1/");
+      zip.putNextEntry(one);
+
+      final ZipEntry pb = new ZipEntry("1/data.pb");
+      zip.putNextEntry(pb);
+      zip.write(dmRegions.serialize().toByteArray());
+
+      // Don't bother compressing the map, since png is already compressed.
+      zip.setLevel(0);
+      final ZipEntry map = new ZipEntry("1/map.png");
+      zip.putNextEntry(map);
+      ImageIO.write(dmImage, "png", zip);
+      zip.finish();
+    }
+    finally {
+      zip.close();
+    }
+  }
+
+  void open(final File path)
+    throws IOException {
+    final ZipFile zip = new ZipFile(path);
+    try {
+      ZipEntry entry = zip.getEntry("version");
+      if (entry == null) {
+        throw new IOException("Not a DMTool save file: No version entry");
+      }
+      final DMProto.Version version = DMProto.Version.parseFrom(zip.getInputStream(entry));
+      if (!version.getFormat().equals(SAVE_FILE_FORMAT)) {
+        throw new IOException("Not a DMTool saved map");
+      }
+      if (version.getVersion() != 1) {
+        throw new IOException("Cannot parse save file: Of unsupported version " +
+                              version.getVersion());
+      }
+
+      entry = zip.getEntry("metadata");
+      if (entry == null) {
+        throw new IOException("Bad save file: No metadata entry");
+      }
+      final DMProto.Metadata metadata = DMProto.Metadata.parseFrom(zip.getInputStream(entry));
+
+      entry = zip.getEntry(metadata.getContents() + "/data.pb");
+      if (entry == null) {
+        throw new IOException("Bad save file: No \"data.pb\" entry for map \"" +
+                              metadata.getContents() + "\"");
+      }
+      final DMProto.Map map = DMProto.Map.parseFrom(zip.getInputStream(entry));
+
+      entry = zip.getEntry(metadata.getContents() + "/map.png");
+      if (entry == null) {
+        throw new IOException("Bad save file: No \"map.png\" entry for map \"" +
+                              metadata.getContents() + "\"");
+      }
+      final BufferedImage img = ImageIO.read(zip.getInputStream(entry));
+
+      // If we get here, everything worked.
+      pause();
+      savePath = path;
+      final Regions rs = new Regions();
+      rs.load(map);
+      dmRegions = rs;
+      dmImage = img;
+      dmScale = 1;
+      dmOffset = new Point(0, 0);
+      fireNewMap();
+    }
+    finally {
+      zip.close();
+    }
   }
 
   void quit() {
