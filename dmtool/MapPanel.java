@@ -387,7 +387,7 @@ public class MapPanel
             case KeyEvent.VK_DELETE:
             case KeyEvent.VK_BACK_SPACE:
               if (activeRegion != null) {
-                parent.getRegions(isPlayer).removeRegion(activeRegion.id);
+                parent.getRegions(isPlayer).removeRegion(activeRegion);
                 activeRegion = null;
                 parent.repaint();
               }

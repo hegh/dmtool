@@ -33,14 +33,16 @@ public class Regions {
     return parent.addChild(x, y, w, h);
   }
 
-  public void removeRegion(final int id) {
-    final RegionGroup parent = groups.get(id);
-    if (parent == null) {
+  public void removeRegion(final Region r) {
+    if (r == null) {
       return;
     }
-    parent.removeChild(id);
-    if (parent.children.isEmpty()) {
-      groups.remove(parent.id);
+    if (r.parent == null) {
+      return;
+    }
+    r.parent.removeChild(r.id);
+    if (r.parent.children.isEmpty()) {
+      groups.remove(r.parent.id);
     }
   }
 
