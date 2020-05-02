@@ -29,6 +29,14 @@ public class RegionGroup {
     return region;
   }
 
+  public void addChild(final Region region) {
+    children.put(region.id, region);
+    if (region.parent != this && region.parent != null) {
+      region.parent.removeChild(region.id);
+    }
+    region.parent = this;
+  }
+
   public void removeChild(final int id) {
     children.remove(id);
   }
@@ -57,8 +65,7 @@ public class RegionGroup {
 
     for (final Region child : children.values()) {
       final Region r = child.clone();
-      r.parent = copy;
-      copy.children.put(r.id, r);
+      copy.addChild(r);
     }
     return copy;
   }

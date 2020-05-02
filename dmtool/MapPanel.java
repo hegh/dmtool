@@ -367,6 +367,9 @@ public class MapPanel
             case KeyEvent.VK_A:
               newAvatarCommand();
               break;
+            case KeyEvent.VK_D:
+              duplicateRegionCommand(/* isSibling = */ false);
+              break;
             case KeyEvent.VK_SPACE:
               toggleRegionStateCommand();
               break;
@@ -408,6 +411,9 @@ public class MapPanel
           switch (e.getKeyCode()) {
             case KeyEvent.VK_R:
               newRegionCommand(/* isSibling = */ true);
+              break;
+            case KeyEvent.VK_D:
+              duplicateRegionCommand(/* isSibling = */ true);
               break;
           }
         }
@@ -472,6 +478,19 @@ public class MapPanel
       activeRegion = null;
       parent.repaint();
     }
+  }
+
+  private void duplicateRegionCommand(final boolean isSibling) {
+    if (activeRegion == null) {
+      return;
+    }
+
+    final Region r = parent.getRegions(isPlayer).duplicate(activeRegion);
+    if (!isSibling || r.isAvatar) { // Disallow avatar siblings.
+      parent.getRegions(isPlayer).deparent(r);
+    }
+    detectMouseOverRegion();
+    parent.repaint();
   }
 
   private void toggleRegionStateCommand() {

@@ -16,6 +16,10 @@ public class Region {
   public Color color;
   public Integer fontSize; // Needs to be recalculated on resize.
 
+  // This is for convenience, to make duplications easier.
+  // Do not clone this property.
+  int nextDupPosition = 0;
+
   public Region(final RegionGroup parent, final int x, final int y, final int w, final int h) {
     id = nextID;
     nextID++;
@@ -82,6 +86,12 @@ public class Region {
   @Override
   public Region clone() {
     final Region copy = new Region(parent, x, y, w, h);
+    copy.isAvatar = isAvatar;
+    copy.isDead = isDead;
+    copy.symbol = symbol;
+    copy.color = color;
+    copy.fontSize = fontSize;
+    parent.addChild(copy);
     return copy;
   }
 }

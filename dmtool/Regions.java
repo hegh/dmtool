@@ -33,6 +33,46 @@ public class Regions {
     return parent.addChild(x, y, w, h);
   }
 
+  public Region duplicate(final Region old) {
+    final Region r = old.clone();
+    old.parent.addChild(r);
+    switch (old.nextDupPosition) {
+      case 0: // Right.
+        r.adjustDims(r.getW(), 0, 0, 0);
+        break;
+      case 1: // Down & right.
+        r.adjustDims(r.getW(), r.getH(), 0, 0);
+        break;
+      case 2: // Down.
+        r.adjustDims(0, r.getH(), 0, 0);
+        break;
+      case 3: // Down & left.
+        r.adjustDims(-r.getW(), r.getH(), 0, 0);
+        break;
+      case 4: // Left.
+        r.adjustDims(-r.getW(), 0, 0, 0);
+        break;
+      case 5: // Up & left.
+        r.adjustDims(-r.getW(), -r.getH(), 0, 0);
+        break;
+      case 6: // Up.
+        r.adjustDims(0, -r.getH(), 0, 0);
+        break;
+      default: // Up & right.
+        r.adjustDims(r.getW(), -r.getH(), 0, 0);
+    }
+    old.nextDupPosition++;
+    old.nextDupPosition %= 8;
+    return r;
+  }
+
+  public void deparent(final Region r) {
+    removeRegion(r);
+    final RegionGroup parent = new RegionGroup();
+    groups.put(parent.id, parent);
+    parent.addChild(r);
+  }
+
   public void removeRegion(final Region r) {
     if (r == null) {
       return;
