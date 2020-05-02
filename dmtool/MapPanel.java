@@ -362,46 +362,23 @@ public class MapPanel
         if (e.getModifiersEx() == 0) {
           switch (e.getKeyCode()) {
             case KeyEvent.VK_R:
-              newRegionParent = null;
-              activeRegion = null;
-              newRegion = true;
-              mouseStatus = NEW_REGION;
-              setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+              newRegionCommand(/* isSibling = */ false);
               break;
             case KeyEvent.VK_A:
-              final NewAvatarDialog.AvatarSelectionResult result =
-                NewAvatarDialog.showDialog(parentWindow);
-              if (result != null) {
-                final Point mouse = windowToImageCoords(mx, my);
-                final Region r = parent.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, 40, 40);
-                r.isAvatar = true;
-                r.symbol = result.symbol;
-                r.color = result.color;
-              }
-              parent.repaint();
+              newAvatarCommand();
               break;
             case KeyEvent.VK_SPACE:
-              if (activeRegion != null) {
-                activeRegion.toggleState();
-                parent.repaint();
-              }
+              toggleRegionStateCommand();
               break;
             case KeyEvent.VK_DELETE:
             case KeyEvent.VK_BACK_SPACE:
-              if (activeRegion != null) {
-                parent.getRegions(isPlayer).removeRegion(activeRegion);
-                activeRegion = null;
-                parent.repaint();
-              }
+              deleteRegionCommand();
               break;
             case KeyEvent.VK_ESCAPE:
-              dragging = false;
-              newRegion = false;
-              detectMouseOverRegion();
-              repaint();
+              cancelNewRegionCommand();
               break;
             case KeyEvent.VK_Q:
-              parent.togglePause();
+              togglePauseCommand();
               break;
             case KeyEvent.VK_LEFT:
               scroll(LEFT, 1);
@@ -420,39 +397,88 @@ public class MapPanel
         else if ((e.getModifiersEx() & InputEvent.CTRL_DOWN_MASK) == InputEvent.CTRL_DOWN_MASK) {
           switch (e.getKeyCode()) {
             case KeyEvent.VK_Q:
-              parent.quit();
+              quitCommand();
               break;
-            case KeyEvent.VK_N: {
-              final JFileChooser chooser = new JFileChooser();
-              final FileNameExtensionFilter filter =
-                new FileNameExtensionFilter("Supported Images", ImageIO.getReaderFileSuffixes());
-              chooser.setFileFilter(filter);
-              final int result = chooser.showOpenDialog(parentWindow);
-              if (result == JFileChooser.APPROVE_OPTION) {
-                parent.newMap(chooser.getSelectedFile());
-              }
+            case KeyEvent.VK_N:
+              newMapCommand();
               break;
-            }
           }
         }
         else if ((e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) == InputEvent.SHIFT_DOWN_MASK) {
           switch (e.getKeyCode()) {
             case KeyEvent.VK_R:
-              if (activeRegion != null) {
-                newRegionParent = activeRegion.parent;
-              }
-              else {
-                newRegionParent = null;
-              }
-              activeRegion = null;
-              newRegion = true;
-              mouseStatus = NEW_REGION;
-              setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+              newRegionCommand(/* isSibling = */ true);
               break;
           }
         }
       }
     });
+  }
+
+  private void togglePauseCommand() {
+    parent.togglePause();
+  }
+
+  private void newMapCommand() {
+    final JFileChooser chooser = new JFileChooser();
+    final FileNameExtensionFilter filter =
+      new FileNameExtensionFilter("Supported Images", ImageIO.getReaderFileSuffixes());
+    chooser.setFileFilter(filter);
+    final int result = chooser.showOpenDialog(parentWindow);
+    if (result == JFileChooser.APPROVE_OPTION) {
+      parent.newMap(chooser.getSelectedFile());
+    }
+  }
+
+  private void quitCommand() {
+    parent.quit();
+  }
+
+  private void newRegionCommand(final boolean isSibling) {
+    if (isSibling && activeRegion != null && !activeRegion.isAvatar) {
+      newRegionParent = activeRegion.parent;
+    }
+    else {
+      newRegionParent = null;
+    }
+    activeRegion = null;
+    newRegion = true;
+    mouseStatus = NEW_REGION;
+    setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+  }
+
+  private void cancelNewRegionCommand() {
+    dragging = false;
+    newRegion = false;
+    detectMouseOverRegion();
+    repaint();
+  }
+
+  private void newAvatarCommand() {
+    final NewAvatarDialog.AvatarSelectionResult result = NewAvatarDialog.showDialog(parentWindow);
+    if (result != null) {
+      final Point mouse = windowToImageCoords(mx, my);
+      final Region r = parent.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, 40, 40);
+      r.isAvatar = true;
+      r.symbol = result.symbol;
+      r.color = result.color;
+    }
+    parent.repaint();
+  }
+
+  private void deleteRegionCommand() {
+    if (activeRegion != null) {
+      parent.getRegions(isPlayer).removeRegion(activeRegion);
+      activeRegion = null;
+      parent.repaint();
+    }
+  }
+
+  private void toggleRegionStateCommand() {
+    if (activeRegion != null) {
+      activeRegion.toggleState();
+      parent.repaint();
+    }
   }
 
   private void detectMouseOverRegion() {
