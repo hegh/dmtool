@@ -6,7 +6,6 @@ import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.event.FocusEvent.Cause;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
@@ -65,7 +64,7 @@ public class MapWindow
       return;
     }
 
-    mapPanel.requestFocus(Cause.ACTIVATION);
+    mapPanel.requestFocus();
   }
 
   @Override

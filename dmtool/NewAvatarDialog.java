@@ -5,7 +5,6 @@ import java.awt.Color;
 import java.awt.GridLayout;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
-import java.awt.event.FocusEvent.Cause;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -62,7 +61,7 @@ public class NewAvatarDialog
     add(cancelButton);
     pack();
 
-    symbolText.requestFocus(Cause.ACTIVATION);
+    symbolText.requestFocus();
 
     symbolText.addActionListener((final ActionEvent e) -> {
       okButton.doClick();
@@ -75,7 +74,7 @@ public class NewAvatarDialog
     okButton.addActionListener((final ActionEvent e) -> {
       if (symbolText.getText().length() == 0) {
         getToolkit().beep();
-        symbolText.requestFocusInWindow(Cause.ACTIVATION);
+        symbolText.requestFocusInWindow();
         return;
       }
       symbol = symbolText.getText().charAt(0);
