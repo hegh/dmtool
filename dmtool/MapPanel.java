@@ -207,13 +207,13 @@ public class MapPanel
           return;
         }
 
-        // TODO: If moving, move parent instead of region.
-        final int dx = mx - sx;
-        final int dy = my - sy;
+        // Use Ceil so if the user saw even a small change while dragging, it
+        // will appear as a change instead of as an ignored drag.
         final double invScale = 1.0 / parent.getScale(isPlayer);
+        final double dx = Math.ceil(invScale * (mx - sx));
+        final double dy = Math.ceil(invScale * (my - sy));
         dragging = false;
-        activeRegion.adjustDims((int)(invScale * xm * dx), (int)(invScale * ym * dy),
-                                (int)(invScale * wm * dx), (int)(invScale * hm * dy));
+        activeRegion.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
         activeRegion.fontSize = null;
         if (newRegion) {
           int parentID = 0;
