@@ -50,6 +50,8 @@ public class MapPanel
   private static final Color HANDLE_COLOR = Color.red;
   private static final Color LOCKED_HANDLE_COLOR = Color.blue;
 
+  private static final Color DEAD_AVATAR_COLOR = new Color(92, 92, 92, 192);
+
   private static final int OUT_OF_REGION = 0;
   private static final int NW_CORNER = 1;
   private static final int N_EDGE = 2;
@@ -591,13 +593,20 @@ public class MapPanel
         }
 
         // We need to draw unscaled regions because the mask is going to be
-        // scaled
-        // later.
+        // scaled later.
         final Corners c = new Corners(r);
         final String symbol = Character.toString(r.symbol);
-        g.setColor(r.color);
-        g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
-        int trySize = (int)(1.25 * Math.min(c.unscaledWidth, c.unscaledHeight));
+        Color color = r.color;
+        if (r.isDead) {
+          color = DEAD_AVATAR_COLOR;
+        }
+        g.setColor(color);
+        // Thick border so it shows up better after multiple rescalings (zoom
+        // level here, plus screen sharing).
+        g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth - 1, c.unscaledHeight - 1);
+        g.drawRect(c.unscaledLeft + 1, c.unscaledTop + 1, c.unscaledWidth - 3,
+                   c.unscaledHeight - 3);
+        int trySize = (Math.min(c.unscaledWidth, c.unscaledHeight));
         int lastChange = 0;
         while (r.fontSize == null && trySize > 1) {
           g.setFont(new Font(null, 0, trySize));
@@ -639,16 +648,10 @@ public class MapPanel
           c.unscaledBottom - lineMetrics.getDescent() - (c.unscaledHeight - bounds.getHeight()) / 2;
         g.drawString(Character.toString(r.symbol), (int)x, (int)y);
         if (r.isDead) {
-          g.setComposite(AlphaComposite.SrcOver);
-          g.setColor(new Color(128, 0, 0, 192));
-          final LineMetrics skullMetrics = fontMetrics.getLineMetrics(SKULL, g);
-          final Rectangle2D skullBounds = fontMetrics.getStringBounds(SKULL, g);
-          final double skullX = c.unscaledLeft + (c.unscaledWidth - skullBounds.getWidth()) / 2;
-          final double skullY = c.unscaledBottom - skullMetrics.getDescent() -
-                                (c.unscaledHeight - skullBounds.getHeight()) / 2;
-          g.drawString(SKULL, (int)skullX, (int)skullY);
-
-          g.setComposite(AlphaComposite.Src);
+          // Draw an X. Tried drawing a skull glyph, but it disappears below
+          // some size threshold on MacOS.
+          g.drawLine(c.unscaledLeft, c.unscaledTop, c.unscaledRight, c.unscaledBottom);
+          g.drawLine(c.unscaledLeft, c.unscaledBottom, c.unscaledRight, c.unscaledTop);
         }
       }
     }
