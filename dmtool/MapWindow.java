@@ -4,6 +4,8 @@ package dmtool;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.FocusEvent.Cause;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -31,6 +33,31 @@ public class MapWindow
       @Override
       public void windowClosing(final WindowEvent e) {
         parent.quit();
+      }
+    });
+
+    addComponentListener(new ComponentAdapter() {
+      private long debounceTime = 0;
+
+      @Override
+      public void componentResized(final ComponentEvent e) {
+        // Lock the window sizes together.
+        final MapWindow other = parent.getWindow(!isPlayer);
+        final Dimension size = getSize();
+        if (other.getSize().equals(size)) {
+          return;
+        }
+        // On KDE, half-screen maximize bounces the window size by a few pixels,
+        // so debounce.
+        final long now = System.currentTimeMillis();
+        if (now - debounceTime < 200) {
+          System.err.println("Debounce window size, isPlayer = " + isPlayer);
+          return;
+        }
+        debounceTime = now;
+        System.err
+          .println("Resized to " + size.width + "x" + size.height + ", isPlayer = " + isPlayer);
+        other.setSize(size);
       }
     });
 

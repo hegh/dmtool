@@ -69,6 +69,13 @@ public class DMTool {
     dmWindow.repaint();
   }
 
+  MapWindow getWindow(final boolean isPlayer) {
+    if (isPlayer) {
+      return playerWindow;
+    }
+    return dmWindow;
+  }
+
   Image getImage(final boolean isPlayer) {
     if (isPlayer && paused) {
       return playerImage;
