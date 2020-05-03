@@ -26,6 +26,7 @@ import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -800,7 +801,28 @@ public class MapPanel
     g.setColor(emptyMaskColor);
     g.fillRect(0, 0, imgWidth, imgHeight);
 
+    final ArrayList<RegionGroup> drawOrder =
+      new ArrayList<>(parent.getRegions(isPlayer).getGroups().size());
     for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+      if (!group.isVisible() && isPlayer) {
+        // Player doesn't draw hidden regions.
+        continue;
+      }
+      drawOrder.add(group);
+    }
+    if (!isPlayer) {
+      drawOrder.sort((final RegionGroup a, final RegionGroup b) -> {
+        // Draw the hidden regions first.
+        if (!a.isVisible() && b.isVisible()) {
+          return -1;
+        }
+        if (a.isVisible() && !b.isVisible()) {
+          return 1;
+        }
+        return 0;
+      });
+    }
+    for (final RegionGroup group : drawOrder) {
       for (final Region r : group.getChildren()) {
         if (r.isAvatar) {
           continue;
