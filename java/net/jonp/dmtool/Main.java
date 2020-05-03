@@ -1,5 +1,5 @@
 
-package dmtool;
+package net.jonp.dmtool;
 
 import java.io.File;
 import java.io.IOException;

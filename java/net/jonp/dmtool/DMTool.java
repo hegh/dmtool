@@ -1,5 +1,5 @@
 
-package dmtool;
+package net.jonp.dmtool;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
@@ -16,7 +16,7 @@ import java.util.zip.ZipOutputStream;
 import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
 
-import dmproto.DMProto;
+import net.jonp.dmtool.dmproto.DMProto;
 
 /**
  *

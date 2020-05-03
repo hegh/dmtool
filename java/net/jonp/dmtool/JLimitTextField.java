@@ -1,5 +1,5 @@
 
-package dmtool;
+package net.jonp.dmtool;
 
 import javax.swing.JTextField;
 import javax.swing.text.AttributeSet;

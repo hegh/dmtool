@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package dmproto;
 
-option java_package = "dmproto";
+option java_package = "net.jonp.dmtool.dmproto";
 option java_outer_classname = "DMProto";
 
 // Every save file is a Zip archive, and MUST contain a 'version' file at the

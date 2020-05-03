@@ -1,12 +1,12 @@
 
-package dmtool;
+package net.jonp.dmtool;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import dmproto.DMProto;
+import net.jonp.dmtool.dmproto.DMProto;
 
 public class RegionGroup {
   private static int nextID = 1;

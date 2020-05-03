@@ -1,9 +1,9 @@
 
-package dmtool;
+package net.jonp.dmtool;
 
 import java.awt.Color;
 
-import dmproto.DMProto;
+import net.jonp.dmtool.dmproto.DMProto;
 
 public class Region {
   private static int nextID = 1;

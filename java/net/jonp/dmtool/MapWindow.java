@@ -1,5 +1,5 @@
 
-package dmtool;
+package net.jonp.dmtool;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;

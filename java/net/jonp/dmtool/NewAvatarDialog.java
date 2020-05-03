@@ -1,5 +1,5 @@
 
-package dmtool;
+package net.jonp.dmtool;
 
 import java.awt.Color;
 import java.awt.GridLayout;
