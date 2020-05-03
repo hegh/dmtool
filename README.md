@@ -148,8 +148,12 @@ regions themselves.
 ### Prereqs
 
 You must have these installed:
- * Bazel https://bazel.build/
- * A recent Java Development Kit. 14 will definitely work.
+ * Bazel
+   https://bazel.build/
+ * A recent Java Development Kit
+   https://www.oracle.com/java/technologies/javase-jdk11-downloads.html
+   or
+   `apt-get install openjdk-8-jdk`
 
 Make sure your `JAVA_HOME` is set correctly, then run this command from the
 root of the repository:
