@@ -453,6 +453,7 @@ public class MapPanel
     }
     try {
       parent.newMap(chooser.getSelectedFile());
+      System.err.println("Loaded image \"" + chooser.getSelectedFile() + "\"");
     }
     catch (final IOException e) {
       JOptionPane.showMessageDialog(parentWindow, "Failed to load image: " + e.getMessage(),
