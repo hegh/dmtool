@@ -128,6 +128,11 @@ visibility. If they get into a battle, mark enemies as dead with Space or by
 deleting them with Delete or Backspace. If you need to add more NPCs, use A or
 D.
 
+If you need to make larger changes, pause the Player View with Q first to avoid
+exposing areas or avatars that your players should not see yet. Pausing includes
+updates to scrolling and zooming, so you are free to make all kinds of
+adjustments without your players seeing anything.
+
 I recommend *not* saving the map, so it can more easily be reused next time,
 unless you need to stop for now and resume later. In that case, use
 Ctrl+Shift+S to Save-As rather than overwriting your original map.
@@ -137,3 +142,21 @@ Ctrl+Shift+S to Save-As rather than overwriting your original map.
 If you have permission (check the license where you found your map images),
 share your saved maps with other DMs so they don't need to mark out all of the
 regions themselves.
+
+## Build & Run
+
+### Prereqs
+
+You must have these installed:
+ * Bazel https://bazel.build/
+ * A recent Java Development Kit. 14 will definitely work.
+
+Make sure your `JAVA_HOME` is set correctly, then run this command from the
+root of the repository:
+```bash
+bazel build java:DMTool_deploy.jar
+```
+
+The resulting jar, `bazel-bin/DMTool_deploy.jar` will contain everything you
+need to run the program. You can start it with
+`java -jar bazel-bin/DMTool_deploy.jar`.
