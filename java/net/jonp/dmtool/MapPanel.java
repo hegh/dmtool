@@ -327,7 +327,6 @@ public class MapPanel
     });
 
     addMouseWheelListener((final MouseWheelEvent e) -> {
-      // TODO: Test whether scrolling/zooming while dragging works.
       System.err.println("Mouse wheel " + e.getWheelRotation() + " with modifiers " +
                          InputEvent.getModifiersExText(e.getModifiersEx()) +
                          " with param string \"" + e.paramString() + "\"");
@@ -725,32 +724,36 @@ public class MapPanel
   }
 
   public void drawAvatar(final Graphics2D g, final Region r) {
-    // We need to draw unscaled regions because the mask is going to be
-    // scaled later.
     final Corners c = new Corners(r);
     final String symbol = Character.toString(r.symbol);
     Color color = r.color;
     if (r.isDead) {
       color = DEAD_AVATAR_COLOR;
     }
+
+    // Thick border.
     g.setColor(color);
-    // Thick border so it shows up better after multiple rescalings (zoom
-    // level here, plus screen sharing).
-    g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth - 1, c.unscaledHeight - 1);
-    g.drawRect(c.unscaledLeft + 1, c.unscaledTop + 1, c.unscaledWidth - 3, c.unscaledHeight - 3);
-    int trySize = (Math.min(c.unscaledWidth, c.unscaledHeight));
+    g.drawRect(c.left, c.top, c.width - 1, c.height - 1);
+    g.drawRect(c.left + 1, c.top + 1, c.width - 3, c.height - 3);
+
+    // Calculate & cache the font when necessary.
+    int trySize = (Math.min(c.width, c.height));
     int lastChange = 0;
+    if (r.lastZoomLevel != dmtool.getScale(isPlayer)) {
+      r.fontSize = null;
+      r.lastZoomLevel = dmtool.getScale(isPlayer);
+    }
     while (r.fontSize == null && trySize > 1) {
       g.setFont(new Font(null, 0, trySize));
       final FontMetrics fontMetrics = g.getFontMetrics();
       final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-      if (bounds.getWidth() > c.unscaledWidth || bounds.getHeight() > c.unscaledHeight) {
+      if (bounds.getWidth() > c.width || bounds.getHeight() > c.height) {
         // Too big, try the next size down.
         trySize--;
         lastChange = -1;
         continue;
       }
-      if (bounds.getWidth() < c.unscaledWidth && bounds.getHeight() < c.unscaledHeight) {
+      if (bounds.getWidth() < c.width && bounds.getHeight() < c.height) {
         // Too small. Unless we just shrunk to this size because it was too
         // big, try the next size up.
         if (lastChange == -1) {
@@ -767,6 +770,7 @@ public class MapPanel
       break;
     }
     if (r.fontSize == null) {
+      // If unable to choose a size, just use 1.
       r.fontSize = 1;
     }
 
@@ -775,19 +779,19 @@ public class MapPanel
     final FontMetrics fontMetrics = g.getFontMetrics();
     final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
     final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-    final double x = c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2;
-    final double y =
-      c.unscaledBottom - lineMetrics.getDescent() - (c.unscaledHeight - bounds.getHeight()) / 2;
+    final double x = c.left + (c.width - bounds.getWidth()) / 2;
+    final double y = c.bottom - lineMetrics.getDescent() - (c.height - bounds.getHeight()) / 2;
     g.drawString(Character.toString(r.symbol), (int)x, (int)y);
+
     if (r.isDead) {
       // Draw an X. Tried drawing a skull glyph, but it disappears below
       // some size threshold on MacOS.
-      g.drawLine(c.unscaledLeft, c.unscaledTop, c.unscaledRight, c.unscaledBottom);
-      g.drawLine(c.unscaledLeft, c.unscaledBottom, c.unscaledRight, c.unscaledTop);
+      g.drawLine(c.left, c.top, c.right, c.bottom);
+      g.drawLine(c.left, c.bottom, c.right, c.top);
     }
   }
 
-  public Image drawAvatars() {
+  public void drawAvatars(final Graphics2D g) {
     // Draw dead avatars, then live.
     final Collection<Region> deadAvatars = new ArrayList<>();
     final Collection<Region> liveAvatars = new ArrayList<>();
@@ -805,43 +809,39 @@ public class MapPanel
       }
     }
 
-    final BufferedImage img = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_INT_ARGB);
-    final Graphics2D g = img.createGraphics();
-
-    // Mark every pixel as transparent.
-    g.setComposite(AlphaComposite.Src);
-    g.setColor(new Color(0, 0, 0, 0));
-    g.fillRect(0, 0, imgWidth, imgHeight);
     for (final Region r : deadAvatars) {
       drawAvatar(g, r);
     }
     for (final Region r : liveAvatars) {
       drawAvatar(g, r);
     }
-    g.dispose();
-    return img;
   }
 
   // Hides/shades areas of the screen that are not being shared.
-  public Image drawMask() {
-    final BufferedImage img = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_INT_ARGB);
+  public Image drawMask(final Rectangle bounds) {
+    // Need to use a new image so we can black the entire thing, then make
+    // transparent windows in it to see through.
+    final BufferedImage img =
+      new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
     final Graphics2D g = img.createGraphics();
 
     // Black out the entire image.
     g.setComposite(AlphaComposite.Src);
     g.setColor(emptyMaskColor);
-    g.fillRect(0, 0, imgWidth, imgHeight);
+    g.fillRect(0, 0, bounds.width, bounds.height);
 
     final ArrayList<RegionGroup> drawOrder =
       new ArrayList<>(dmtool.getRegions(isPlayer).getGroups().size());
     for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       if (!group.isVisible() && isPlayer) {
-        // Player doesn't draw hidden regions.
+        // Don't make hidden regions into player windows.
         continue;
       }
       drawOrder.add(group);
     }
     if (!isPlayer) {
+      // Player sees everything the same; DM needs transparent windows drawn
+      // after translucent masks.
       drawOrder.sort((final RegionGroup a, final RegionGroup b) -> {
         // Draw the hidden regions first.
         if (!a.isVisible() && b.isVisible()) {
@@ -856,6 +856,7 @@ public class MapPanel
     for (final RegionGroup group : drawOrder) {
       for (final Region r : group.getChildren()) {
         if (r.isAvatar) {
+          // These are drawn elsewhere.
           continue;
         }
         if (r.isVisible()) {
@@ -866,17 +867,14 @@ public class MapPanel
           g.setColor(hiddenMaskColor);
         }
 
-        // We need to draw unscaled regions because the mask is going to be
-        // scaled
-        // later.
         final Corners c = new Corners(r);
-        g.fillRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
+        g.fillRect(c.left, c.top, c.width, c.height);
       }
     }
     if (newRegion && activeRegion != null) {
       g.setColor(hiddenMaskColor);
       final Corners c = new Corners(activeRegion);
-      g.fillRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth, c.unscaledHeight);
+      g.fillRect(c.left, c.top, c.width, c.height);
     }
     g.dispose();
     return img;
@@ -885,9 +883,9 @@ public class MapPanel
   @Override
   public void paint(final Graphics og) {
     final Image img = dmtool.getImage(isPlayer);
+    final Rectangle b = og.getClipBounds();
     if (img == null) {
       og.setColor(Color.black);
-      final Rectangle b = og.getClipBounds();
       og.fillRect(b.x, b.y, b.width, b.height);
       return;
     }
@@ -900,13 +898,13 @@ public class MapPanel
     final Graphics2D g = (Graphics2D)getBufferStrategy().getDrawGraphics();
     try {
       g.setComposite(AlphaComposite.Src);
-      g.setColor(Color.black); // Black matte in case the image is small.
-      g.fillRect(0, 0, getWidth(), getHeight());
+      g.setColor(Color.black); // Black mat in case the image is small.
+      g.fillRect(0, 0, b.width, b.height);
       g.drawImage(img, transform, this);
 
       g.setComposite(AlphaComposite.SrcOver);
-      g.drawImage(drawAvatars(), transform, this);
-      g.drawImage(drawMask(), transform, this);
+      drawAvatars(g);
+      g.drawImage(drawMask(b), null, this);
 
       if (isPlayer) {
         return;

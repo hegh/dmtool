@@ -17,6 +17,7 @@ public class Region {
   public char symbol;
   public Color color;
   public Integer fontSize; // Needs to be recalculated on resize.
+  public double lastZoomLevel = 1.0; // Recalculate font on zoom change.
 
   // This is for convenience, to make duplications easier.
   // Do not clone this property.
