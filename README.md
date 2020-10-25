@@ -92,6 +92,8 @@ through the DM view; the Player view can only be resized or closed.
 | Mouse Wheel | Scroll up/down. |
 | Shift+Wheel | Scroll left/right. |
 | Ctrl+Wheel | Zoon in/out. |
+| Alt+Wheel | Adjust avatar brightness. |
+| Alt+Shift+Wheel | Adjust avatar brightness faster. |
 
 ## Intended Usage
 

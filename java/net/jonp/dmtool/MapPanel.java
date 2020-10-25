@@ -352,6 +352,14 @@ public class MapPanel
         else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
           scroll(RIGHT, e.getWheelRotation());
         }
+        else if (e.getModifiersEx() == InputEvent.ALT_DOWN_MASK) {
+          // Wheel down is positive, want to darken, so negate.
+          adjustAvatarColor(-e.getPreciseWheelRotation());
+        }
+        else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK)) {
+          // Faster color adjustment.
+          adjustAvatarColor(-e.getPreciseWheelRotation() * 5);
+        }
         else {
           return;
         }
@@ -681,6 +689,37 @@ public class MapPanel
     noff.y += SCROLL_DIST * ym * value;
     dmtool.setOffset(noff);
     dmtool.repaint();
+  }
+
+  void adjustAvatarColor(final double value) {
+    if (activeRegion == null) {
+      return;
+    }
+    if (!activeRegion.isAvatar) {
+      return;
+    }
+    if (activeRegion.isDead) {
+      return;
+    }
+
+    final float adjustment = 0.02f * (float)value; // Work in 2% increments.
+    final int[] rgb = new int[] {
+      activeRegion.color.getRed(), activeRegion.color.getGreen(), activeRegion.color.getBlue()
+    };
+    final float[] hsb = Color.RGBtoHSB(rgb[0], rgb[1], rgb[2], null);
+    final float newBrightness = hsb[2] + adjustment;
+    if (newBrightness < 0.05f || newBrightness > 1.0f) {
+      // Don't adjust so far that we lose the color itself or go out of range.
+      System.err.printf("Not adjusting brightness: %f + %f would lose color info\n", hsb[2],
+                        adjustment);
+      return;
+    }
+    activeRegion.color = Color.getHSBColor(hsb[0], hsb[1], newBrightness);
+
+    System.err
+      .printf("Adjusted avatar by %f (%f) from [%d, %d, %d] to [%d, %d, %d] (brightness %f -> %f)\n",
+              value, adjustment, rgb[0], rgb[1], rgb[2], activeRegion.color.getRed(),
+              activeRegion.color.getGreen(), activeRegion.color.getBlue(), hsb[2], newBrightness);
   }
 
   private void rescale() {
