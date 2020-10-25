@@ -483,7 +483,7 @@ public class MapPanel
                 cancelNewRegionCommand();
                 deselectAllCommand();
                 break;
-              case KeyEvent.VK_Q:
+              case KeyEvent.VK_F:
                 togglePauseCommand();
                 break;
               case KeyEvent.VK_LEFT:

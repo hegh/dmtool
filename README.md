@@ -74,7 +74,7 @@ through the DM view; the Player view can only be resized or closed.
 
 | Key | Description |
 |-----|-------------|
-| Q   | Pause/Unpause updates to the Player view. |
+| F   | Pause/Unpause updates to the Player view. |
 | A   | Create a new avatar to represent a player or NPC. Opens a dialog to choose a symbol and color. |
 | R   | Create a new region to control visibility. Click/drag to draw the box. |
 | Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for masking oddly-shaped rooms. |
@@ -88,13 +88,14 @@ through the DM view; the Player view can only be resized or closed.
 | Click & Drag | Move/resize region or avatar. If it is a selected avatar, move/resize all selected avatars together. |
 | Right-Click & Drag | Select all avatars in the area. |
 | Right-Click | Toggle selection of an avatar.
+| Off-click during Drag | Cancel operation. For example, while Right-click & Dragging a selection box, a Left-click will cancel the new selection. |
 | Escape | Cancel new-region creation and de-select all avatars. |
 | Backspace / Delete | Delete the region or avatar under the cursor. |
 | Ctrl+N | Open a new image file to start a new map. Pauses the tool before switching to the new image. Clears the active save file. |
 | Ctrl+S | Save the image, regions, and avatars to a ".dmap" file. Overwrites the active save, if there is one. |
 | Ctrl+Shift+S | Save-As. |
 | Ctrl+O | Open a ".dmap" file saved by this tool. |
-| Ctrl+Q | Quit. |
+| Ctrl+Q | Quit. Does not ask for confirmation. |
 | Arrow keys | Scroll around the map. |
 | Mouse Wheel | Scroll up/down. |
 | Shift+Wheel | Scroll left/right. |
