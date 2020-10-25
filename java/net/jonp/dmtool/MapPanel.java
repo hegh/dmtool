@@ -354,11 +354,13 @@ public class MapPanel
         }
         else if (e.getModifiersEx() == InputEvent.ALT_DOWN_MASK) {
           // Wheel down is positive, want to darken, so negate.
-          adjustAvatarColor(-e.getPreciseWheelRotation());
+          adjustAvatarColor(0.0f, 0.0f, (float)-e.getPreciseWheelRotation());
         }
         else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK)) {
-          // Faster color adjustment.
-          adjustAvatarColor(-e.getPreciseWheelRotation() * 5);
+          adjustAvatarColor((float)-e.getPreciseWheelRotation(), 0.0f, 0.0f);
+        }
+        else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
+          adjustAvatarColor(0.0f, (float)-e.getPreciseWheelRotation(), 0.0f);
         }
         else {
           return;
@@ -692,7 +694,7 @@ public class MapPanel
     dmtool.repaint();
   }
 
-  void adjustAvatarColor(final double value) {
+  void adjustAvatarColor(final float hue, final float saturation, final float brightness) {
     if (activeRegion == null) {
       return;
     }
@@ -703,24 +705,42 @@ public class MapPanel
       return;
     }
 
-    final float adjustment = 0.02f * (float)value; // Work in 2% increments.
+    // Work in 2% increments.
+    final float increment = 0.02f;
+    final float[] adjustment = new float[] {
+      hue * increment, saturation * increment, brightness * increment
+    };
     final int[] rgb = new int[] {
       activeRegion.color.getRed(), activeRegion.color.getGreen(), activeRegion.color.getBlue()
     };
-    final float[] hsb = Color.RGBtoHSB(rgb[0], rgb[1], rgb[2], null);
-    final float newBrightness = hsb[2] + adjustment;
-    if (newBrightness < 0.05f || newBrightness > 1.0f) {
-      // Don't adjust so far that we lose the color itself or go out of range.
-      System.err.printf("Not adjusting brightness: %f + %f would lose color info\n", hsb[2],
-                        adjustment);
-      return;
-    }
-    activeRegion.color = Color.getHSBColor(hsb[0], hsb[1], newBrightness);
+    final float[] oldHSB = Color.RGBtoHSB(rgb[0], rgb[1], rgb[2], null);
+    final float[] newHSB = new float[] {
+      oldHSB[0] + adjustment[0], oldHSB[1] + adjustment[1], oldHSB[2] + adjustment[2]
+    };
 
-    System.err
-      .printf("Adjusted avatar by %f (%f) from [%d, %d, %d] to [%d, %d, %d] (brightness %f -> %f)\n",
-              value, adjustment, rgb[0], rgb[1], rgb[2], activeRegion.color.getRed(),
-              activeRegion.color.getGreen(), activeRegion.color.getBlue(), hsb[2], newBrightness);
+    // Minor corrections to prevent odd results:
+    // Loop the Hue around to the other side if out of bounds.
+    while (newHSB[0] < 0.0f) {
+      newHSB[0] += 1.0f;
+    }
+    while (newHSB[0] > 1.0f) {
+      newHSB[0] -= 1.0f;
+    }
+    if (newHSB[1] < 0.0f || newHSB[1] > 1.0f) {
+      // Don't go out of bounds on saturation.
+      newHSB[1] = oldHSB[1];
+    }
+    if (newHSB[2] < 0.0f || (newHSB[2] < 0.05f && oldHSB[2] >= 0.05f) || newHSB[2] > 1.0f) {
+      // Don't get so dark we lose the color itself, or go beyond 1.0.
+      System.err.printf("Not adjusting brightness: %f + %f would lose color info\n", oldHSB[2],
+                        newHSB[2]);
+      newHSB[2] = oldHSB[2];
+    }
+    activeRegion.color = Color.getHSBColor(newHSB[0], newHSB[1], newHSB[2]);
+
+    System.err.printf("Adjusted avatar from [%d, %d, %d] to [%d, %d, %d]\n", rgb[0], rgb[1], rgb[2],
+                      activeRegion.color.getRed(), activeRegion.color.getGreen(),
+                      activeRegion.color.getBlue());
   }
 
   private void rescale() {
