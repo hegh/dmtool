@@ -27,6 +27,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -722,7 +723,87 @@ public class MapPanel
     parent.setScale(scale);
   }
 
-  public Image buildAvatars() {
+  public void drawAvatar(final Graphics2D g, final Region r) {
+    // We need to draw unscaled regions because the mask is going to be
+    // scaled later.
+    final Corners c = new Corners(r);
+    final String symbol = Character.toString(r.symbol);
+    Color color = r.color;
+    if (r.isDead) {
+      color = DEAD_AVATAR_COLOR;
+    }
+    g.setColor(color);
+    // Thick border so it shows up better after multiple rescalings (zoom
+    // level here, plus screen sharing).
+    g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth - 1, c.unscaledHeight - 1);
+    g.drawRect(c.unscaledLeft + 1, c.unscaledTop + 1, c.unscaledWidth - 3, c.unscaledHeight - 3);
+    int trySize = (Math.min(c.unscaledWidth, c.unscaledHeight));
+    int lastChange = 0;
+    while (r.fontSize == null && trySize > 1) {
+      g.setFont(new Font(null, 0, trySize));
+      final FontMetrics fontMetrics = g.getFontMetrics();
+      final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+      if (bounds.getWidth() > c.unscaledWidth || bounds.getHeight() > c.unscaledHeight) {
+        // Too big, try the next size down.
+        trySize--;
+        lastChange = -1;
+        continue;
+      }
+      if (bounds.getWidth() < c.unscaledWidth && bounds.getHeight() < c.unscaledHeight) {
+        // Too small. Unless we just shrunk to this size because it was too
+        // big, try the next size up.
+        if (lastChange == -1) {
+          r.fontSize = trySize;
+          break;
+        }
+        trySize++;
+        lastChange = 1;
+        continue;
+      }
+
+      // One dimension must be equal, so don't change any more.
+      r.fontSize = trySize;
+      break;
+    }
+    if (r.fontSize == null) {
+      r.fontSize = 1;
+    }
+
+    // Center the symbol in the region, adjusting for descent.
+    g.setFont(new Font(null, 0, r.fontSize));
+    final FontMetrics fontMetrics = g.getFontMetrics();
+    final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
+    final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+    final double x = c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2;
+    final double y =
+      c.unscaledBottom - lineMetrics.getDescent() - (c.unscaledHeight - bounds.getHeight()) / 2;
+    g.drawString(Character.toString(r.symbol), (int)x, (int)y);
+    if (r.isDead) {
+      // Draw an X. Tried drawing a skull glyph, but it disappears below
+      // some size threshold on MacOS.
+      g.drawLine(c.unscaledLeft, c.unscaledTop, c.unscaledRight, c.unscaledBottom);
+      g.drawLine(c.unscaledLeft, c.unscaledBottom, c.unscaledRight, c.unscaledTop);
+    }
+  }
+
+  public Image drawAvatars() {
+    // Draw dead avatars, then live.
+    final Collection<Region> deadAvatars = new ArrayList<>();
+    final Collection<Region> liveAvatars = new ArrayList<>();
+    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+      for (final Region r : group.getChildren()) {
+        if (!r.isAvatar) {
+          continue;
+        }
+        if (r.isDead) {
+          deadAvatars.add(r);
+        }
+        else {
+          liveAvatars.add(r);
+        }
+      }
+    }
+
     final BufferedImage img = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_INT_ARGB);
     final Graphics2D g = img.createGraphics();
 
@@ -730,80 +811,18 @@ public class MapPanel
     g.setComposite(AlphaComposite.Src);
     g.setColor(new Color(0, 0, 0, 0));
     g.fillRect(0, 0, imgWidth, imgHeight);
-    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
-      for (final Region r : group.getChildren()) {
-        if (!r.isAvatar) {
-          continue;
-        }
-
-        // We need to draw unscaled regions because the mask is going to be
-        // scaled later.
-        final Corners c = new Corners(r);
-        final String symbol = Character.toString(r.symbol);
-        Color color = r.color;
-        if (r.isDead) {
-          color = DEAD_AVATAR_COLOR;
-        }
-        g.setColor(color);
-        // Thick border so it shows up better after multiple rescalings (zoom
-        // level here, plus screen sharing).
-        g.drawRect(c.unscaledLeft, c.unscaledTop, c.unscaledWidth - 1, c.unscaledHeight - 1);
-        g.drawRect(c.unscaledLeft + 1, c.unscaledTop + 1, c.unscaledWidth - 3,
-                   c.unscaledHeight - 3);
-        int trySize = (Math.min(c.unscaledWidth, c.unscaledHeight));
-        int lastChange = 0;
-        while (r.fontSize == null && trySize > 1) {
-          g.setFont(new Font(null, 0, trySize));
-          final FontMetrics fontMetrics = g.getFontMetrics();
-          final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-          if (bounds.getWidth() > c.unscaledWidth || bounds.getHeight() > c.unscaledHeight) {
-            // Too big, try the next size down.
-            trySize--;
-            lastChange = -1;
-            continue;
-          }
-          if (bounds.getWidth() < c.unscaledWidth && bounds.getHeight() < c.unscaledHeight) {
-            // Too small. Unless we just shrunk to this size because it was too
-            // big, try the next size up.
-            if (lastChange == -1) {
-              r.fontSize = trySize;
-              break;
-            }
-            trySize++;
-            lastChange = 1;
-            continue;
-          }
-
-          // One dimension must be equal, so don't change any more.
-          r.fontSize = trySize;
-          break;
-        }
-        if (r.fontSize == null) {
-          r.fontSize = 1;
-        }
-
-        // Center the symbol in the region, adjusting for descent.
-        g.setFont(new Font(null, 0, r.fontSize));
-        final FontMetrics fontMetrics = g.getFontMetrics();
-        final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
-        final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-        final double x = c.unscaledLeft + (c.unscaledWidth - bounds.getWidth()) / 2;
-        final double y =
-          c.unscaledBottom - lineMetrics.getDescent() - (c.unscaledHeight - bounds.getHeight()) / 2;
-        g.drawString(Character.toString(r.symbol), (int)x, (int)y);
-        if (r.isDead) {
-          // Draw an X. Tried drawing a skull glyph, but it disappears below
-          // some size threshold on MacOS.
-          g.drawLine(c.unscaledLeft, c.unscaledTop, c.unscaledRight, c.unscaledBottom);
-          g.drawLine(c.unscaledLeft, c.unscaledBottom, c.unscaledRight, c.unscaledTop);
-        }
-      }
+    for (final Region r : deadAvatars) {
+      drawAvatar(g, r);
+    }
+    for (final Region r : liveAvatars) {
+      drawAvatar(g, r);
     }
     g.dispose();
     return img;
   }
 
-  public Image buildMask() {
+  // Hides/shades areas of the screen that are not being shared.
+  public Image drawMask() {
     final BufferedImage img = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_INT_ARGB);
     final Graphics2D g = img.createGraphics();
 
@@ -885,8 +904,8 @@ public class MapPanel
       g.drawImage(img, transform, this);
 
       g.setComposite(AlphaComposite.SrcOver);
-      g.drawImage(buildAvatars(), transform, this);
-      g.drawImage(buildMask(), transform, this);
+      g.drawImage(drawAvatars(), transform, this);
+      g.drawImage(drawMask(), transform, this);
 
       if (isPlayer) {
         return;
