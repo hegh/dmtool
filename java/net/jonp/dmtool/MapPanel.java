@@ -188,254 +188,254 @@ public class MapPanel
 
     SwingUtilities.invokeLater(() -> {
       createBufferStrategy(2);
-    });
-    dmtool.addNewMapListener(() -> {
-      rescale();
-      repaint();
-    });
-
-    if (isPlayer) {
-      dmtool.addResumeListener(() -> {
+      dmtool.addNewMapListener(() -> {
         rescale();
         repaint();
       });
-      return;
-    }
 
-    addMouseListener(new MouseAdapter() {
-      @Override
-      public void mouseReleased(final MouseEvent e) {
-        if (!dragging) {
-          return;
-        }
-
-        // Use Ceil so if the user saw even a small change while dragging, it
-        // will appear as a change instead of as an ignored drag.
-        final double invScale = 1.0 / dmtool.getScale(isPlayer);
-        final double dx = Math.ceil(invScale * (mx - sx));
-        final double dy = Math.ceil(invScale * (my - sy));
-        dragging = false;
-        activeRegion.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
-        if (activeRegion.isAvatar) {
-          lw = activeRegion.w;
-          lh = activeRegion.h;
-        }
-        activeRegion.fontSize = null;
-        if (newRegion) {
-          int parentID = 0;
-          if (newRegionParent != null) {
-            parentID = newRegionParent.id;
-          }
-          activeRegion = dmtool.getRegions(isPlayer)
-            .addRegion(parentID, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
-          newRegion = false;
-        }
-        dmtool.repaint();
-      }
-
-      @Override
-      public void mousePressed(final MouseEvent e) {
-        System.err.println("Mouse pressed, button " + e.getButton() + " modifiers " +
-                           InputEvent.getModifiersExText(e.getModifiersEx()));
-        if (e.getButton() == 4) { // Wheel tilt left.
-          scroll(LEFT, 1);
-          return;
-        }
-        if (e.getButton() == 5) { // Wheel tilt right.
-          scroll(RIGHT, 1);
-          return;
-        }
-        if (dragging && e.getButton() == 3) {
-          dragging = false;
-          newRegion = false;
-          detectMouseOverRegion();
+      if (isPlayer) {
+        dmtool.addResumeListener(() -> {
+          rescale();
           repaint();
-          return;
-        }
-        if (activeRegion == null && newRegion && e.getButton() == 1) {
-          // Create a new region.
-          final Point mouse = windowToImageCoords(mx, my);
-          activeRegion = new Region(newRegionParent, mouse.x, mouse.y, 0, 0);
-          sx = mx;
-          sy = my;
-          dragging = true;
-          mouseStatus = SE_CORNER;
-          setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
-          setMultipliers(0, 1, 0, 1);
-          return;
-        }
-        if (activeRegion != null && e.getButton() == 1) {
-          sx = mx;
-          sy = my;
-          dragging = true;
-
-          // Multipliers set how (mx - sx) and (my - sy) are applied to the x,
-          // y, w, and h of the active region.
-          switch (mouseStatus) {
-            case NW_CORNER:
-              setMultipliers(1, -1, 1, -1);
-              break;
-            case N_EDGE:
-              setMultipliers(0, 0, 1, -1);
-              break;
-            case NE_CORNER:
-              setMultipliers(0, 1, 1, -1);
-              break;
-            case E_EDGE:
-              setMultipliers(0, 1, 0, 0);
-              break;
-            case SE_CORNER:
-              setMultipliers(0, 1, 0, 1);
-              break;
-            case S_EDGE:
-              setMultipliers(0, 0, 0, 1);
-              break;
-            case SW_CORNER:
-              setMultipliers(1, -1, 0, 1);
-              break;
-            case W_EDGE:
-              setMultipliers(1, -1, 0, 0);
-              break;
-            case IN_REGION:
-              setMultipliers(1, 0, 1, 0);
-              break;
-            default:
-              System.err.println("Should not get to MousePressed when out-of-region.");
-              System.exit(1);
-          }
-        }
-      }
-    });
-
-    addMouseMotionListener(new MouseMotionAdapter() {
-      @Override
-      public void mouseDragged(final MouseEvent e) {
-        if (dragging) {
-          mx = e.getX();
-          my = e.getY();
-          activeRegion.fontSize = null;
-          repaint();
-        }
-      }
-
-      @Override
-      public void mouseMoved(final MouseEvent e) {
-        mx = e.getX();
-        my = e.getY();
-        detectMouseOverRegion();
-      }
-    });
-
-    addMouseWheelListener((final MouseWheelEvent e) -> {
-      System.err.println("Mouse wheel " + e.getWheelRotation() + " with modifiers " +
-                         InputEvent.getModifiersExText(e.getModifiersEx()) +
-                         " with param string \"" + e.paramString() + "\"");
-      if (e.getModifiersEx() == 0) {
-        scroll(DOWN, e.getWheelRotation());
-      }
-      else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
-        // Zoom in such that the same point remains under the mouse cursor
-        // before/after zooming.
-        final Point off = dmtool.getOffset(isPlayer);
-        double scale = dmtool.getScale(isPlayer);
-        final double invScale = 1.0 / scale;
-
-        // Calculate mouse point in image coordinates.
-        final double ix = (mx - off.x) * invScale;
-        final double iy = (my - off.y) * invScale;
-
-        scale -= scale * 0.05 * e.getWheelRotation();
-        final int nox = (int)(mx - ix * scale);
-        final int noy = (int)(my - iy * scale);
-        dmtool.setScale(scale);
-        dmtool.setOffset(new Point(nox, noy));
-      }
-      else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
-        scroll(RIGHT, e.getWheelRotation());
-      }
-      else {
+        });
         return;
       }
-      dmtool.repaint();
-    });
 
-    addKeyListener(new KeyAdapter() {
-      @Override
-      public void keyPressed(final KeyEvent e) {
-        System.err.println("Key pressed " + e.getKeyCode() + " (" + e.getKeyChar() +
-                           ") modifiers " + InputEvent.getModifiersExText(e.getModifiersEx()));
-        if (e.getModifiersEx() == 0) {
-          switch (e.getKeyCode()) {
-            case KeyEvent.VK_R:
-              newRegionCommand(/* isSibling = */ false);
-              break;
-            case KeyEvent.VK_A:
-              newAvatarCommand();
-              break;
-            case KeyEvent.VK_D:
-              duplicateRegionCommand(/* isSibling = */ false);
-              break;
-            case KeyEvent.VK_SPACE:
-              toggleRegionStateCommand();
-              break;
-            case KeyEvent.VK_DELETE:
-            case KeyEvent.VK_BACK_SPACE:
-              deleteRegionCommand();
-              break;
-            case KeyEvent.VK_ESCAPE:
-              cancelNewRegionCommand();
-              break;
-            case KeyEvent.VK_Q:
-              togglePauseCommand();
-              break;
-            case KeyEvent.VK_LEFT:
-              scroll(LEFT, 1);
-              break;
-            case KeyEvent.VK_RIGHT:
-              scroll(RIGHT, 1);
-              break;
-            case KeyEvent.VK_UP:
-              scroll(UP, 1);
-              break;
-            case KeyEvent.VK_DOWN:
-              scroll(DOWN, 1);
-              break;
+      addMouseListener(new MouseAdapter() {
+        @Override
+        public void mouseReleased(final MouseEvent e) {
+          if (!dragging) {
+            return;
           }
+
+          // Use Ceil so if the user saw even a small change while dragging, it
+          // will appear as a change instead of as an ignored drag.
+          final double invScale = 1.0 / dmtool.getScale(isPlayer);
+          final double dx = Math.ceil(invScale * (mx - sx));
+          final double dy = Math.ceil(invScale * (my - sy));
+          dragging = false;
+          activeRegion.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
+          if (activeRegion.isAvatar) {
+            lw = activeRegion.w;
+            lh = activeRegion.h;
+          }
+          activeRegion.fontSize = null;
+          if (newRegion) {
+            int parentID = 0;
+            if (newRegionParent != null) {
+              parentID = newRegionParent.id;
+            }
+            activeRegion = dmtool.getRegions(isPlayer)
+              .addRegion(parentID, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
+            newRegion = false;
+          }
+          dmtool.repaint();
+        }
+
+        @Override
+        public void mousePressed(final MouseEvent e) {
+          System.err.println("Mouse pressed, button " + e.getButton() + " modifiers " +
+                             InputEvent.getModifiersExText(e.getModifiersEx()));
+          if (e.getButton() == 4) { // Wheel tilt left.
+            scroll(LEFT, 1);
+            return;
+          }
+          if (e.getButton() == 5) { // Wheel tilt right.
+            scroll(RIGHT, 1);
+            return;
+          }
+          if (dragging && e.getButton() == 3) {
+            dragging = false;
+            newRegion = false;
+            detectMouseOverRegion();
+            repaint();
+            return;
+          }
+          if (activeRegion == null && newRegion && e.getButton() == 1) {
+            // Create a new region.
+            final Point mouse = windowToImageCoords(mx, my);
+            activeRegion = new Region(newRegionParent, mouse.x, mouse.y, 0, 0);
+            sx = mx;
+            sy = my;
+            dragging = true;
+            mouseStatus = SE_CORNER;
+            setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+            setMultipliers(0, 1, 0, 1);
+            return;
+          }
+          if (activeRegion != null && e.getButton() == 1) {
+            sx = mx;
+            sy = my;
+            dragging = true;
+
+            // Multipliers set how (mx - sx) and (my - sy) are applied to the x,
+            // y, w, and h of the active region.
+            switch (mouseStatus) {
+              case NW_CORNER:
+                setMultipliers(1, -1, 1, -1);
+                break;
+              case N_EDGE:
+                setMultipliers(0, 0, 1, -1);
+                break;
+              case NE_CORNER:
+                setMultipliers(0, 1, 1, -1);
+                break;
+              case E_EDGE:
+                setMultipliers(0, 1, 0, 0);
+                break;
+              case SE_CORNER:
+                setMultipliers(0, 1, 0, 1);
+                break;
+              case S_EDGE:
+                setMultipliers(0, 0, 0, 1);
+                break;
+              case SW_CORNER:
+                setMultipliers(1, -1, 0, 1);
+                break;
+              case W_EDGE:
+                setMultipliers(1, -1, 0, 0);
+                break;
+              case IN_REGION:
+                setMultipliers(1, 0, 1, 0);
+                break;
+              default:
+                System.err.println("Should not get to MousePressed when out-of-region.");
+                System.exit(1);
+            }
+          }
+        }
+      });
+
+      addMouseMotionListener(new MouseMotionAdapter() {
+        @Override
+        public void mouseDragged(final MouseEvent e) {
+          if (dragging) {
+            mx = e.getX();
+            my = e.getY();
+            activeRegion.fontSize = null;
+            repaint();
+          }
+        }
+
+        @Override
+        public void mouseMoved(final MouseEvent e) {
+          mx = e.getX();
+          my = e.getY();
+          detectMouseOverRegion();
+        }
+      });
+
+      addMouseWheelListener((final MouseWheelEvent e) -> {
+        System.err.println("Mouse wheel " + e.getWheelRotation() + " with modifiers " +
+                           InputEvent.getModifiersExText(e.getModifiersEx()) +
+                           " with param string \"" + e.paramString() + "\"");
+        if (e.getModifiersEx() == 0) {
+          scroll(DOWN, e.getWheelRotation());
         }
         else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
-          switch (e.getKeyCode()) {
-            case KeyEvent.VK_Q:
-              quitCommand();
-              break;
-            case KeyEvent.VK_N:
-              newMapCommand();
-              break;
-            case KeyEvent.VK_S:
-              saveCommand();
-              break;
-            case KeyEvent.VK_O:
-              openCommand();
-              break;
-          }
+          // Zoom in such that the same point remains under the mouse cursor
+          // before/after zooming.
+          final Point off = dmtool.getOffset(isPlayer);
+          double scale = dmtool.getScale(isPlayer);
+          final double invScale = 1.0 / scale;
+
+          // Calculate mouse point in image coordinates.
+          final double ix = (mx - off.x) * invScale;
+          final double iy = (my - off.y) * invScale;
+
+          scale -= scale * 0.05 * e.getWheelRotation();
+          final int nox = (int)(mx - ix * scale);
+          final int noy = (int)(my - iy * scale);
+          dmtool.setScale(scale);
+          dmtool.setOffset(new Point(nox, noy));
         }
         else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
-          switch (e.getKeyCode()) {
-            case KeyEvent.VK_R:
-              newRegionCommand(/* isSibling = */ true);
-              break;
-            case KeyEvent.VK_D:
-              duplicateRegionCommand(/* isSibling = */ true);
-              break;
+          scroll(RIGHT, e.getWheelRotation());
+        }
+        else {
+          return;
+        }
+        dmtool.repaint();
+      });
+
+      addKeyListener(new KeyAdapter() {
+        @Override
+        public void keyPressed(final KeyEvent e) {
+          System.err.println("Key pressed " + e.getKeyCode() + " (" + e.getKeyChar() +
+                             ") modifiers " + InputEvent.getModifiersExText(e.getModifiersEx()));
+          if (e.getModifiersEx() == 0) {
+            switch (e.getKeyCode()) {
+              case KeyEvent.VK_R:
+                newRegionCommand(/* isSibling = */ false);
+                break;
+              case KeyEvent.VK_A:
+                newAvatarCommand();
+                break;
+              case KeyEvent.VK_D:
+                duplicateRegionCommand(/* isSibling = */ false);
+                break;
+              case KeyEvent.VK_SPACE:
+                toggleRegionStateCommand();
+                break;
+              case KeyEvent.VK_DELETE:
+              case KeyEvent.VK_BACK_SPACE:
+                deleteRegionCommand();
+                break;
+              case KeyEvent.VK_ESCAPE:
+                cancelNewRegionCommand();
+                break;
+              case KeyEvent.VK_Q:
+                togglePauseCommand();
+                break;
+              case KeyEvent.VK_LEFT:
+                scroll(LEFT, 1);
+                break;
+              case KeyEvent.VK_RIGHT:
+                scroll(RIGHT, 1);
+                break;
+              case KeyEvent.VK_UP:
+                scroll(UP, 1);
+                break;
+              case KeyEvent.VK_DOWN:
+                scroll(DOWN, 1);
+                break;
+            }
+          }
+          else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
+            switch (e.getKeyCode()) {
+              case KeyEvent.VK_Q:
+                quitCommand();
+                break;
+              case KeyEvent.VK_N:
+                newMapCommand();
+                break;
+              case KeyEvent.VK_S:
+                saveCommand();
+                break;
+              case KeyEvent.VK_O:
+                openCommand();
+                break;
+            }
+          }
+          else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
+            switch (e.getKeyCode()) {
+              case KeyEvent.VK_R:
+                newRegionCommand(/* isSibling = */ true);
+                break;
+              case KeyEvent.VK_D:
+                duplicateRegionCommand(/* isSibling = */ true);
+                break;
+            }
+          }
+          else if (e.getModifiersEx() == (InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
+            switch (e.getKeyCode()) {
+              case KeyEvent.VK_S:
+                saveAsCommand();
+                break;
+            }
           }
         }
-        else if (e.getModifiersEx() == (InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
-          switch (e.getKeyCode()) {
-            case KeyEvent.VK_S:
-              saveAsCommand();
-              break;
-          }
-        }
-      }
+      });
     });
   }
 
