@@ -71,6 +71,7 @@ public class Region {
   }
 
   public void load(final DMProto.Avatar avatar) {
+    isAvatar = true;
     isDead = avatar.getIsDead();
     if (avatar.getSymbol().length() == 0) {
       symbol = '?';
