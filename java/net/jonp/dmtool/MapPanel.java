@@ -441,6 +441,7 @@ public class MapPanel
 
   private void togglePauseCommand() {
     dmtool.togglePause();
+    repaint();
   }
 
   private void newMapCommand() {
