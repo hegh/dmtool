@@ -88,9 +88,6 @@ public class MapPanel
     final int width, height;
     final int midX, midY;
 
-    final int unscaledLeft, unscaledRight, unscaledTop, unscaledBottom;
-    final int unscaledWidth, unscaledHeight;
-
     public Corners(final Region r) {
       final double scale = dmtool.getScale(isPlayer);
       final double invScale = 1.0 / scale;
@@ -108,21 +105,12 @@ public class MapPanel
         bh = invScale * hm * dy;
       }
 
-      // Compute raw, unscaled corners of the region, and normalize to positive
-      // width/height.
       final double rWidth = Math.abs(r.getW() + bw);
       final double rHeight = Math.abs(r.getH() + bh);
       final double rLeft = Math.min(r.getX() + bx, r.getX() + bx + r.getW() + bw);
       final double rRight = Math.max(r.getX() + bx, r.getX() + bx + r.getW() + bw);
       final double rTop = Math.min(r.getY() + by, r.getY() + by + r.getH() + bh);
       final double rBottom = Math.max(r.getY() + by, r.getY() + by + r.getH() + bh);
-
-      unscaledLeft = (int)rLeft;
-      unscaledRight = (int)rRight;
-      unscaledTop = (int)rTop;
-      unscaledBottom = (int)rBottom;
-      unscaledWidth = (int)rWidth;
-      unscaledHeight = (int)rHeight;
 
       final Point off = dmtool.getOffset(isPlayer);
       left = (int)(off.x + scale * rLeft);
