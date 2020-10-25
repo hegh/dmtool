@@ -75,14 +75,20 @@ through the DM view; the Player view can only be resized or closed.
 | Key | Description |
 |-----|-------------|
 | Q   | Pause/Unpause updates to the Player view. |
-| R   | Create a new region to control visibility. Click/drag to draw the box. |
-| Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for oddly-shaped rooms. |
 | A   | Create a new avatar to represent a player or NPC. Opens a dialog to choose a symbol and color. |
+| R   | Create a new region to control visibility. Click/drag to draw the box. |
+| Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for masking oddly-shaped rooms. |
+| Space | Toggle player visibility of the region under the cursor, or the life/death status of the avatar under the cursor. |
+| V   | Toggle visibility of an avatar. Invisible avatars can only be seen by the DM. Does nothing for regions. |
 | D   | Duplicate the region or avatar under the cursor. Repeated duplications will surround the original object. |
-| V   | Toggle visibility of an avatar. Invisible avatars can only be seen by the DM. |
-| Shift+D | Like D, but the new region shares visibility with the region that was under the cursor. |
-| Escape | Cancel new-region creation. |
-| Space | Toggle visibility of regions or life/death status of avatars. |
+| Shift+D | Like D, but the new region shares visibility with the region that was under the cursor. For avatars, identical to D. |
+| Alt+Wheel | Adjust avatar brightness. |
+| Alt+Ctrl+Wheel | Adjust avatar saturation. |
+| Alt+Shift+Wheel | Adjust avatar hue. |
+| Click & Drag | Move/resize region or avatar. If it is a selected avatar, move/resize all selected avatars together. |
+| Right-Click & Drag | Select all avatars in the area. |
+| Right-Click | Toggle selection of an avatar.
+| Escape | Cancel new-region creation and de-select all avatars. |
 | Backspace / Delete | Delete the region or avatar under the cursor. |
 | Ctrl+N | Open a new image file to start a new map. Pauses the tool before switching to the new image. Clears the active save file. |
 | Ctrl+S | Save the image, regions, and avatars to a ".dmap" file. Overwrites the active save, if there is one. |
@@ -93,9 +99,6 @@ through the DM view; the Player view can only be resized or closed.
 | Mouse Wheel | Scroll up/down. |
 | Shift+Wheel | Scroll left/right. |
 | Ctrl+Wheel | Zoon in/out. |
-| Alt+Wheel | Adjust avatar brightness. |
-| Alt+Ctrl+Wheel | Adjust avatar saturation. |
-| Alt+Shift+Wheel | Adjust avatar hue. |
 
 ## Intended Usage
 

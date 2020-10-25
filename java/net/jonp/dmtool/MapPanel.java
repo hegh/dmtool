@@ -48,10 +48,14 @@ public class MapPanel
   private static final Color PLAYER_MASK_COLOR = new Color(0, 0, 0, 255);
   private static final Color DM_EMPTY_MASK_COLOR = new Color(0, 0, 0, 128);
   private static final Color DM_HIDDEN_MASK_COLOR = new Color(0, 0, 128, 128);
+  private static final Color DM_SELECTION_MASK_COLOR = new Color(0, 128, 0, 128);
+  private static final Color DM_ACTIVE_MASK_COLOR = new Color(128, 128, 0, 128);
 
   private static final int HANDLE_SIZE = 6;
   private static final Color HANDLE_COLOR = Color.red;
   private static final Color LOCKED_HANDLE_COLOR = Color.blue;
+  private static final Color SELECTION_COLOR = Color.yellow;
+  private static final Color ACTIVE_SELECTION_COLOR = Color.cyan;
 
   private static final Color DEAD_AVATAR_COLOR = new Color(92, 92, 92, 192);
 
@@ -95,7 +99,9 @@ public class MapPanel
       double by = 0;
       double bw = 0;
       double bh = 0;
-      if (dragging && r == activeRegion) {
+      if (dragging &&
+          (r == activeRegion ||
+           (avatarSelection.containsKey(activeRegion.id) && avatarSelection.containsKey(r.id)))) {
         // Mouse coordinates are in a scaled image, so reverse the scale first.
         final int dx = mx - sx;
         final int dy = my - sy;
@@ -134,6 +140,9 @@ public class MapPanel
 
   final Color emptyMaskColor; // When there is no region.
   final Color hiddenMaskColor; // When the region is hidden.
+  final Color selectionMaskColor; // When drawing a selection box.
+  final Color activeMaskColor; // When a region (other than a selection box) is
+                               // active.
 
   // Updated when the map changes.
   int imgWidth = 1;
@@ -147,11 +156,52 @@ public class MapPanel
   boolean newRegion = false;
   RegionGroup newRegionParent = null;
 
+  // Selection, for moving multiple avatars at once. Will never contain regions.
+  final Map<Integer, Region> avatarSelection = new HashMap<>();
+
   Region activeRegion; // If in a region.
   int sx, sy; // Starting mouse coordinates for a resize or drag operation.
   int xm, ym, wm, hm; // Multipliers for delta x/y/w/h of region when dragging.
   int lw, lh; // Last avatar size. Used when creating a new avatar.
   boolean dragging = false;
+  boolean selectionBox = false; // True to select avatars in new "region".
+
+  void setMultipliers(final int mouseStatus) {
+    // Multipliers set how (mx - sx) and (my - sy) are applied to the x,
+    // y, w, and h of the active region.
+    switch (mouseStatus) {
+      case NW_CORNER:
+        setMultipliers(1, -1, 1, -1);
+        break;
+      case N_EDGE:
+        setMultipliers(0, 0, 1, -1);
+        break;
+      case NE_CORNER:
+        setMultipliers(0, 1, 1, -1);
+        break;
+      case E_EDGE:
+        setMultipliers(0, 1, 0, 0);
+        break;
+      case SE_CORNER:
+        setMultipliers(0, 1, 0, 1);
+        break;
+      case S_EDGE:
+        setMultipliers(0, 0, 0, 1);
+        break;
+      case SW_CORNER:
+        setMultipliers(1, -1, 0, 1);
+        break;
+      case W_EDGE:
+        setMultipliers(1, -1, 0, 0);
+        break;
+      case IN_REGION:
+        setMultipliers(1, 0, 1, 0);
+        break;
+      default:
+        System.err.println("Should not get to MousePressed when out-of-region.");
+        System.exit(1);
+    }
+  }
 
   void setMultipliers(final int xm, final int wm, final int ym, final int hm) {
     this.xm = xm;
@@ -168,10 +218,14 @@ public class MapPanel
     if (isPlayer) {
       emptyMaskColor = PLAYER_MASK_COLOR;
       hiddenMaskColor = PLAYER_MASK_COLOR;
+      selectionMaskColor = PLAYER_MASK_COLOR;
+      activeMaskColor = PLAYER_MASK_COLOR;
     }
     else {
       emptyMaskColor = DM_EMPTY_MASK_COLOR;
       hiddenMaskColor = DM_HIDDEN_MASK_COLOR;
+      selectionMaskColor = DM_SELECTION_MASK_COLOR;
+      activeMaskColor = DM_ACTIVE_MASK_COLOR;
     }
 
     SwingUtilities.invokeLater(() -> {
@@ -195,28 +249,69 @@ public class MapPanel
           if (!dragging) {
             return;
           }
+          dragging = false;
 
-          // Use Ceil so if the user saw even a small change while dragging, it
-          // will appear as a change instead of as an ignored drag.
+          // Right-click with ~no movement = deselect.
+          if (e.getButton() == 3 && mouseDist(sx, sy) <= 3.0) {
+            avatarSelection.remove(activeRegion.id);
+            repaint();
+            return;
+          }
+
+          // Store new region sizes/positions.
+          // Use Ceil so if the user saw even a small change while dragging,
+          // it will appear as a change instead of as an ignored drag.
           final double invScale = 1.0 / dmtool.getScale(isPlayer);
           final double dx = Math.ceil(invScale * (mx - sx));
           final double dy = Math.ceil(invScale * (my - sy));
-          dragging = false;
-          activeRegion.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
+          if (activeRegion.isAvatar && avatarSelection.containsKey(activeRegion.id)) {
+            // Adjust dimensions of all selected regions.
+            for (final Region r : avatarSelection.values()) {
+              r.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
+              r.fontSize = null;
+            }
+          }
+          else {
+            activeRegion.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
+            activeRegion.fontSize = null;
+          }
+
           if (activeRegion.isAvatar) {
+            // Record size to use on the next avatar created.
             lw = activeRegion.w;
             lh = activeRegion.h;
           }
-          activeRegion.fontSize = null;
+
+          // If creating a new region, store it.
           if (newRegion) {
+            newRegion = false;
+
             int parentID = 0;
             if (newRegionParent != null) {
               parentID = newRegionParent.id;
             }
             activeRegion = dmtool.getRegions(isPlayer)
               .addRegion(parentID, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
-            newRegion = false;
           }
+
+          // If drawing a selection box, mark the new selections.
+          if (selectionBox) {
+            selectionBox = false;
+            for (final RegionGroup g : dmtool.getRegions(isPlayer).getGroups()) {
+              for (final Region r : g.getChildren()) {
+                if (!r.isAvatar) {
+                  continue;
+                }
+                if (activeRegion.intersects(r)) {
+                  avatarSelection.put(r.id, r);
+                }
+              }
+            }
+            activeRegion = null;
+            repaint();
+            return;
+          }
+
           dmtool.repaint();
         }
 
@@ -232,7 +327,7 @@ public class MapPanel
             scroll(RIGHT, 1);
             return;
           }
-          if (dragging && e.getButton() == 3) {
+          if (dragging) { // Off-click cancels drag.
             dragging = false;
             newRegion = false;
             detectMouseOverRegion();
@@ -251,44 +346,39 @@ public class MapPanel
             setMultipliers(0, 1, 0, 1);
             return;
           }
+          if ((activeRegion == null || !activeRegion.isAvatar) && e.getButton() == 3) {
+            // Drag a selection box around avatars.
+            final Point mouse = windowToImageCoords(mx, my);
+            activeRegion = new Region(newRegionParent, mouse.x, mouse.y, 0, 0);
+            sx = mx;
+            sy = my;
+            dragging = true;
+            selectionBox = true;
+            mouseStatus = SE_CORNER;
+            setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+            setMultipliers(0, 1, 0, 1);
+            return;
+          }
           if (activeRegion != null && e.getButton() == 1) {
+            // Start dragging region.
             sx = mx;
             sy = my;
             dragging = true;
 
-            // Multipliers set how (mx - sx) and (my - sy) are applied to the x,
-            // y, w, and h of the active region.
-            switch (mouseStatus) {
-              case NW_CORNER:
-                setMultipliers(1, -1, 1, -1);
-                break;
-              case N_EDGE:
-                setMultipliers(0, 0, 1, -1);
-                break;
-              case NE_CORNER:
-                setMultipliers(0, 1, 1, -1);
-                break;
-              case E_EDGE:
-                setMultipliers(0, 1, 0, 0);
-                break;
-              case SE_CORNER:
-                setMultipliers(0, 1, 0, 1);
-                break;
-              case S_EDGE:
-                setMultipliers(0, 0, 0, 1);
-                break;
-              case SW_CORNER:
-                setMultipliers(1, -1, 0, 1);
-                break;
-              case W_EDGE:
-                setMultipliers(1, -1, 0, 0);
-                break;
-              case IN_REGION:
-                setMultipliers(1, 0, 1, 0);
-                break;
-              default:
-                System.err.println("Should not get to MousePressed when out-of-region.");
-                System.exit(1);
+            setMultipliers(mouseStatus);
+          }
+          if (activeRegion != null && activeRegion.isAvatar && e.getButton() == 3) {
+            if (avatarSelection.containsKey(activeRegion.id)) {
+              // Start dragging selected avatars.
+              sx = mx;
+              sy = my;
+              dragging = true;
+              setMultipliers(mouseStatus);
+            }
+            else {
+              // Add this avatar to the selection.
+              avatarSelection.put(activeRegion.id, activeRegion);
+              repaint();
             }
           }
         }
@@ -300,7 +390,14 @@ public class MapPanel
           if (dragging) {
             mx = e.getX();
             my = e.getY();
-            activeRegion.fontSize = null;
+            if (avatarSelection.containsKey(activeRegion.id)) {
+              for (final Region r : avatarSelection.values()) {
+                r.fontSize = null;
+              }
+            }
+            else {
+              activeRegion.fontSize = null;
+            }
             repaint();
           }
         }
@@ -384,6 +481,7 @@ public class MapPanel
                 break;
               case KeyEvent.VK_ESCAPE:
                 cancelNewRegionCommand();
+                deselectAllCommand();
                 break;
               case KeyEvent.VK_Q:
                 togglePauseCommand();
@@ -550,7 +648,13 @@ public class MapPanel
   private void cancelNewRegionCommand() {
     dragging = false;
     newRegion = false;
+    selectionBox = false;
     detectMouseOverRegion();
+    repaint();
+  }
+
+  private void deselectAllCommand() {
+    avatarSelection.clear();
     repaint();
   }
 
@@ -597,7 +701,14 @@ public class MapPanel
 
   private void toggleRegionStateCommand() {
     if (activeRegion != null) {
-      activeRegion.toggleState();
+      if (avatarSelection.containsKey(activeRegion.id)) {
+        for (final Region r : avatarSelection.values()) {
+          r.toggleState();
+        }
+      }
+      else {
+        activeRegion.toggleState();
+      }
       dmtool.repaint();
     }
   }
@@ -609,7 +720,14 @@ public class MapPanel
     if (!activeRegion.isAvatar) {
       return;
     }
-    activeRegion.toggleAvatarVisibility();
+    if (avatarSelection.containsKey(activeRegion.id)) {
+      for (final Region r : avatarSelection.values()) {
+        r.toggleAvatarVisibility();
+      }
+    }
+    else {
+      activeRegion.toggleAvatarVisibility();
+    }
     dmtool.repaint();
   }
 
@@ -996,8 +1114,14 @@ public class MapPanel
         g.fillRect(c.left, c.top, c.width, c.height);
       }
     }
-    if (newRegion && activeRegion != null) {
-      g.setColor(hiddenMaskColor);
+
+    if (activeRegion != null) {
+      if (selectionBox) {
+        g.setColor(selectionMaskColor);
+      }
+      else {
+        g.setColor(activeMaskColor);
+      }
       final Corners c = new Corners(activeRegion);
       g.fillRect(c.left, c.top, c.width, c.height);
     }
@@ -1035,7 +1159,15 @@ public class MapPanel
         return;
       }
 
-      if (activeRegion != null) {
+      for (final Region r : avatarSelection.values()) {
+        if (r == activeRegion) {
+          drawCorners(g, ACTIVE_SELECTION_COLOR, r);
+        }
+        else {
+          drawCorners(g, SELECTION_COLOR, r);
+        }
+      }
+      if (activeRegion != null && !avatarSelection.containsKey(activeRegion.id)) {
         if (activeRegion.parent != null) {
           for (final Region r : activeRegion.parent.getChildren()) {
             if (r == activeRegion) {

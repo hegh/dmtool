@@ -181,4 +181,20 @@ public class Region {
     return scale * getX() <= x && x <= scale * (getX() + w) && scale * getY() <= y &&
            y <= scale * (getY() + h);
   }
+
+  public boolean intersects(final Region r) {
+    if (r.x + r.w < x) {
+      return false; // Too far to the left.
+    }
+    if (r.x > x + w) {
+      return false; // Too far to the right.
+    }
+    if (r.y + r.h < y) {
+      return false; // Too high.
+    }
+    if (r.y > y + h) {
+      return false; // Too low.
+    }
+    return true;
+  }
 }
