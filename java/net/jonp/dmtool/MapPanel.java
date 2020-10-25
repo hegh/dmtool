@@ -575,6 +575,7 @@ public class MapPanel
       final Region r = dmtool.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, lw, lh);
       r.isAvatar = true;
       r.symbol = result.symbol;
+      r.index = dmtool.getRegions(isPlayer).getNextIndex(r.symbol);
       r.color = result.color;
     }
     dmtool.repaint();
@@ -788,19 +789,21 @@ public class MapPanel
       final FontMetrics fontMetrics = g.getFontMetrics();
       final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
       if (bounds.getWidth() > c.width || bounds.getHeight() > c.height) {
-        // Too big, try the next size down.
+        // Too big, try the next size down. Could do a full binary search now
+        // that we know what region to look in, but performance hasn't been an
+        // issue yet.
         trySize--;
         lastChange = -1;
         continue;
       }
       if (bounds.getWidth() < c.width && bounds.getHeight() < c.height) {
         // Too small. Unless we just shrunk to this size because it was too
-        // big, try the next size up.
+        // big, double the size (makes for a faster search).
         if (lastChange == -1) {
           r.fontSize = trySize;
           break;
         }
-        trySize++;
+        trySize *= 2;
         lastChange = 1;
         continue;
       }
@@ -814,14 +817,38 @@ public class MapPanel
       r.fontSize = 1;
     }
 
-    // Center the symbol in the region, adjusting for descent.
+    // Almost center the symbol in the region, adjusting for descent. Push it a
+    // little left and up to better fit the index.
     g.setFont(new Font(null, 0, r.fontSize));
-    final FontMetrics fontMetrics = g.getFontMetrics();
-    final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
-    final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-    final double x = c.left + (c.width - bounds.getWidth()) / 2;
-    final double y = c.bottom - lineMetrics.getDescent() - (c.height - bounds.getHeight()) / 2;
+    FontMetrics fontMetrics = g.getFontMetrics();
+    LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
+    Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+    final double x = c.left + (c.width - bounds.getWidth()) / 2 - c.width * 0.1;
+    final double y =
+      c.bottom - lineMetrics.getDescent() - (c.height - bounds.getHeight()) / 2 - c.height * 0.1;
     g.drawString(Character.toString(r.symbol), (int)x, (int)y);
+
+    // Add the avatar index in a corner, at 1/3 the font size.
+    // Space from the side by the width of a narrow character in the font.
+    if (r.fontSize / 3 > 0) {
+      g.setFont(new Font(null, 0, r.fontSize / 3));
+      fontMetrics = g.getFontMetrics();
+
+      final String index = Integer.toString(r.index);
+      lineMetrics = fontMetrics.getLineMetrics(index, g);
+      bounds = fontMetrics.getStringBounds(index, g);
+      final double space = fontMetrics.charWidth(' ');
+      final double right = c.right - bounds.getWidth() - space;
+      final double bottom = c.bottom - lineMetrics.getDescent();
+
+      // Considered doing all four corners; here's the rest of the math.
+      // final double left = c.left + space;
+      // final double top = c.top + lineMetrics.getHeight();
+      // g.drawString(index, (int)left, (int)top);
+      // g.drawString(index, (int)left, (int)bottom);
+      // g.drawString(index, (int)right, (int)top);
+      g.drawString(index, (int)right, (int)bottom);
+    }
 
     if (r.isDead) {
       // Draw an X. Tried drawing a skull glyph, but it disappears below

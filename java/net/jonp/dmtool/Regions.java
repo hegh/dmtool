@@ -14,10 +14,14 @@ import net.jonp.dmtool.dmproto.DMProto;
  */
 public class Regions {
   private final Map<Integer, RegionGroup> groups = new HashMap<>();
+  private final Map<Character, Integer> symbolCounter = new HashMap<>();
 
   @Override
   public Regions clone() {
     final Regions n = new Regions();
+    for (final Map.Entry<Character, Integer> entry : symbolCounter.entrySet()) {
+      n.symbolCounter.put(entry.getKey(), entry.getValue());
+    }
     for (final RegionGroup group : getGroups()) {
       final RegionGroup copy = group.clone();
       n.groups.put(copy.id, copy);
@@ -30,12 +34,18 @@ public class Regions {
     for (final RegionGroup group : groups.values()) {
       group.serializeInto(map);
     }
+    for (final Map.Entry<Character, Integer> entry : symbolCounter.entrySet()) {
+      map.putSymbolCounter(entry.getKey().toString(), entry.getValue());
+    }
     return map.build();
   }
 
   public void load(final DMProto.Map map) {
     clear();
     // TODO: Support locked regions.
+    for (final Map.Entry<String, Integer> entry : map.getSymbolCounterMap().entrySet()) {
+      symbolCounter.put(entry.getKey().charAt(0), entry.getValue());
+    }
     for (final DMProto.Group group : map.getRegionGroupList()) {
       final RegionGroup rg = new RegionGroup();
       rg.load(group);
@@ -54,6 +64,7 @@ public class Regions {
 
   public void clear() {
     groups.clear();
+    symbolCounter.clear();
   }
 
   // Pass 0 to create a new region group.
@@ -75,6 +86,9 @@ public class Regions {
   public Region duplicate(final Region old) {
     final Region r = old.clone();
     old.parent.addChild(r);
+    if (r.isAvatar) {
+      r.index = getNextIndex(r.symbol);
+    }
     switch (old.nextDupPosition) {
       case 0: // Right.
         r.adjustDims(r.getW(), 0, 0, 0);
@@ -127,5 +141,14 @@ public class Regions {
 
   public Collection<RegionGroup> getGroups() {
     return Collections.unmodifiableCollection(groups.values());
+  }
+
+  public int getNextIndex(final char symbol) {
+    Integer next = symbolCounter.get(symbol);
+    if (next == null) {
+      next = 1;
+    }
+    symbolCounter.put(symbol, next + 1);
+    return next;
   }
 }

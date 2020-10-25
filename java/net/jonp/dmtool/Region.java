@@ -15,6 +15,7 @@ public class Region {
   public boolean isAvatar;
   public boolean isDead;
   public char symbol;
+  public int index; // To tell apart avatars with the same symbol.
   public Color color;
   public Integer fontSize; // Needs to be recalculated on resize.
   public double lastZoomLevel = 1.0; // Recalculate font on zoom change.
@@ -29,6 +30,7 @@ public class Region {
     copy.isAvatar = isAvatar;
     copy.isDead = isDead;
     copy.symbol = symbol;
+    copy.index = index;
     copy.color = color;
     copy.fontSize = fontSize;
     parent.addChild(copy);
@@ -65,6 +67,7 @@ public class Region {
     final DMProto.Avatar.Builder avatar = DMProto.Avatar.newBuilder();
     avatar.setIsDead(isDead);
     avatar.setSymbol(Character.toString(symbol));
+    avatar.setIndex(index);
     avatar.setColor(serializeColor());
     avatar.setRect(serializeRect());
     return avatar.build();
@@ -79,6 +82,7 @@ public class Region {
     else {
       symbol = avatar.getSymbol().charAt(0);
     }
+    index = avatar.getIndex();
     load(avatar.getColor());
     load(avatar.getRect());
   }

@@ -295,6 +295,7 @@ public class DMTool {
       savePath = path;
       final Regions rs = new Regions();
       rs.load(map);
+      assignMissingAvatarIndices(rs);
       dmRegions = rs;
       dmImage = img;
       dmScale = 1;
@@ -303,6 +304,22 @@ public class DMTool {
     }
     finally {
       zip.close();
+    }
+  }
+
+  private void assignMissingAvatarIndices(final Regions rs) {
+    // Avatar indices were added as a backwards-compatible extension to the v1
+    // save file format. If the file doesn't have them, assign indices to the
+    // avatars.
+    for (final RegionGroup g : rs.getGroups()) {
+      for (final Region r : g.getChildren()) {
+        if (!r.isAvatar) {
+          continue;
+        }
+        if (r.index == 0) {
+          r.index = rs.getNextIndex(r.symbol);
+        }
+      }
     }
   }
 

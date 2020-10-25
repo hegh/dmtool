@@ -32,10 +32,11 @@ message Metadata {
 message Map {
   // If locked, regions cannot be moved/resized/deleted, only
   // visibility-toggled.
-  // Avatars retain full control.
+  // Avatars retain full control even when locked.
   bool locked = 1;
   repeated Group region_group = 2;
   repeated Avatar avatar = 3;
+  map<string, int32> symbol_counter = 4;
 }
 
 // A group message represents a group of regions that share visibility.
@@ -63,6 +64,7 @@ message Avatar {
   string symbol = 2;  // Must be a single character.
   RGBColor color = 3;
   Rect rect = 4;
+  int32 index = 5;  // To tell avatars with the same symbol apart.
 }
 
 // A Rect message represents a rectangle on the map.
