@@ -204,6 +204,8 @@ public class DMTool {
     savePath = null;
     dmImage = img;
     dmRegions = new Regions();
+    dmScale = 1.0;
+    dmOffset = new Point(0, 0);
     fireNewMap();
   }
 
