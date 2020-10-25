@@ -79,6 +79,7 @@ through the DM view; the Player view can only be resized or closed.
 | Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for oddly-shaped rooms. |
 | A   | Create a new avatar to represent a player or NPC. Opens a dialog to choose a symbol and color. |
 | D   | Duplicate the region or avatar under the cursor. Repeated duplications will surround the original object. |
+| V   | Toggle visibility of an avatar. Invisible avatars can only be seen by the DM. |
 | Shift+D | Like D, but the new region shares visibility with the region that was under the cursor. |
 | Escape | Cancel new-region creation. |
 | Space | Toggle visibility of regions or life/death status of avatars. |

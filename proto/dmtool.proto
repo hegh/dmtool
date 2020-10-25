@@ -65,6 +65,7 @@ message Avatar {
   RGBColor color = 3;
   Rect rect = 4;
   int32 index = 5;  // To tell avatars with the same symbol apart.
+  bool is_invisible = 6;  // If true, only the DM can see, even in a visible region.
 }
 
 // A Rect message represents a rectangle on the map.

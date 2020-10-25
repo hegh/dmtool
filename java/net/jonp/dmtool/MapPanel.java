@@ -387,6 +387,9 @@ public class MapPanel
               case KeyEvent.VK_SPACE:
                 toggleRegionStateCommand();
                 break;
+              case KeyEvent.VK_V:
+                toggleAvatarVisibilityCommand();
+                break;
               case KeyEvent.VK_DELETE:
               case KeyEvent.VK_BACK_SPACE:
                 deleteRegionCommand();
@@ -611,6 +614,17 @@ public class MapPanel
     }
   }
 
+  private void toggleAvatarVisibilityCommand() {
+    if (activeRegion == null) {
+      return;
+    }
+    if (!activeRegion.isAvatar) {
+      return;
+    }
+    activeRegion.toggleAvatarVisibility();
+    dmtool.repaint();
+  }
+
   private void detectMouseOverRegion() {
     if (newRegion && activeRegion == null) {
       mouseStatus = NEW_REGION;
@@ -784,7 +798,55 @@ public class MapPanel
     dmtool.setScale(scale);
   }
 
-  public void drawAvatar(final Graphics2D g, final Region r) {
+  private void drawStringInAvatarCorner(final Graphics2D g, final Region r, final String s,
+                                        final int corner) {
+    // Add indicators in the corners, at 1/3 the font size.
+    // Space from the side by the width of a narrow character in the font.
+    if (r.fontSize / 3 <= 0) {
+      return;
+    }
+
+    g.setFont(new Font(null, 0, r.fontSize / 3));
+    final FontMetrics fontMetrics = g.getFontMetrics();
+
+    final LineMetrics lineMetrics = fontMetrics.getLineMetrics(s, g);
+    final Rectangle2D bounds = fontMetrics.getStringBounds(s, g);
+    final Corners c = new Corners(r);
+    final double space = fontMetrics.charWidth(' ');
+    final double left = c.left + space;
+    final double right = c.right - bounds.getWidth() - space;
+    final double bottom = c.bottom - lineMetrics.getDescent();
+    final double top = c.top + lineMetrics.getHeight();
+
+    double x, y;
+    switch (corner) {
+      case NW_CORNER:
+        x = left;
+        y = top;
+        break;
+      case NE_CORNER:
+        x = right;
+        y = top;
+        break;
+      case SW_CORNER:
+        x = left;
+        y = bottom;
+        break;
+      case SE_CORNER:
+        x = right;
+        y = bottom;
+        break;
+      default:
+        throw new IllegalArgumentException("Not a corner: " + corner);
+    }
+    g.drawString(s, (int)x, (int)y);
+  }
+
+  private void drawAvatar(final Graphics2D g, final Region r) {
+    if (isPlayer && !r.isAvatarVisible()) {
+      return;
+    }
+
     final Corners c = new Corners(r);
     final String symbol = Character.toString(r.symbol);
     Color color = r.color;
@@ -792,10 +854,15 @@ public class MapPanel
       color = DEAD_AVATAR_COLOR;
     }
 
-    // Thick border.
     g.setColor(color);
-    g.drawRect(c.left, c.top, c.width - 1, c.height - 1);
-    g.drawRect(c.left + 1, c.top + 1, c.width - 3, c.height - 3);
+    if (r.isAvatarVisible()) {
+      g.drawRect(c.left, c.top, c.width - 1, c.height - 1);
+      g.drawRect(c.left + 1, c.top + 1, c.width - 3, c.height - 3);
+    }
+    else {
+      // Rounded rect to indicate invisible.
+      g.drawRoundRect(c.left, c.top, c.width - 1, c.height - 1, c.width / 2, c.height / 2);
+    }
 
     // Calculate & cache the font when necessary.
     int trySize = (Math.min(c.width, c.height));
@@ -838,36 +905,19 @@ public class MapPanel
     }
 
     // Almost center the symbol in the region, adjusting for descent. Push it a
-    // little left and up to better fit the index.
+    // little up to better fit symbols at the bottom.
     g.setFont(new Font(null, 0, r.fontSize));
-    FontMetrics fontMetrics = g.getFontMetrics();
-    LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
-    Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
-    final double x = c.left + (c.width - bounds.getWidth()) / 2 - c.width * 0.1;
+    final FontMetrics fontMetrics = g.getFontMetrics();
+    final LineMetrics lineMetrics = fontMetrics.getLineMetrics(symbol, g);
+    final Rectangle2D bounds = fontMetrics.getStringBounds(symbol, g);
+    final double x = c.left + (c.width - bounds.getWidth()) / 2;
     final double y =
       c.bottom - lineMetrics.getDescent() - (c.height - bounds.getHeight()) / 2 - c.height * 0.1;
     g.drawString(Character.toString(r.symbol), (int)x, (int)y);
 
-    // Add the avatar index in a corner, at 1/3 the font size.
-    // Space from the side by the width of a narrow character in the font.
-    if (r.fontSize / 3 > 0) {
-      g.setFont(new Font(null, 0, r.fontSize / 3));
-      fontMetrics = g.getFontMetrics();
-
-      final String index = Integer.toString(r.index);
-      lineMetrics = fontMetrics.getLineMetrics(index, g);
-      bounds = fontMetrics.getStringBounds(index, g);
-      final double space = fontMetrics.charWidth(' ');
-      final double right = c.right - bounds.getWidth() - space;
-      final double bottom = c.bottom - lineMetrics.getDescent();
-
-      // Considered doing all four corners; here's the rest of the math.
-      // final double left = c.left + space;
-      // final double top = c.top + lineMetrics.getHeight();
-      // g.drawString(index, (int)left, (int)top);
-      // g.drawString(index, (int)left, (int)bottom);
-      // g.drawString(index, (int)right, (int)top);
-      g.drawString(index, (int)right, (int)bottom);
+    drawStringInAvatarCorner(g, r, Integer.toString(r.index), SE_CORNER);
+    if (!r.isAvatarVisible()) {
+      drawStringInAvatarCorner(g, r, "!v", SW_CORNER);
     }
 
     if (r.isDead) {
@@ -878,7 +928,7 @@ public class MapPanel
     }
   }
 
-  public void drawAvatars(final Graphics2D g) {
+  private void drawAvatars(final Graphics2D g) {
     // Draw dead avatars, then live.
     final Collection<Region> deadAvatars = new ArrayList<>();
     final Collection<Region> liveAvatars = new ArrayList<>();
@@ -905,7 +955,7 @@ public class MapPanel
   }
 
   // Hides/shades areas of the screen that are not being shared.
-  public Image drawMask(final Rectangle bounds) {
+  private Image drawMask(final Rectangle bounds) {
     // Need to use a new image so we can black the entire thing, then make
     // transparent windows in it to see through.
     final BufferedImage img =
@@ -946,7 +996,7 @@ public class MapPanel
           // These are drawn elsewhere.
           continue;
         }
-        if (r.isVisible()) {
+        if (r.isRegionVisible()) {
           // Make visible regions transparent.
           g.setColor(new Color(0, 0, 0, 0));
         }

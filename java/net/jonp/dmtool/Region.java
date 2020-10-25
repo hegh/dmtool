@@ -14,6 +14,7 @@ public class Region {
 
   public boolean isAvatar;
   public boolean isDead;
+  public boolean isInvisible;
   public char symbol;
   public int index; // To tell apart avatars with the same symbol.
   public Color color;
@@ -29,6 +30,7 @@ public class Region {
     final Region copy = new Region(parent, x, y, w, h);
     copy.isAvatar = isAvatar;
     copy.isDead = isDead;
+    copy.isInvisible = isInvisible;
     copy.symbol = symbol;
     copy.index = index;
     copy.color = color;
@@ -66,6 +68,7 @@ public class Region {
   public DMProto.Avatar serializeAsAvatar() {
     final DMProto.Avatar.Builder avatar = DMProto.Avatar.newBuilder();
     avatar.setIsDead(isDead);
+    avatar.setIsInvisible(isInvisible);
     avatar.setSymbol(Character.toString(symbol));
     avatar.setIndex(index);
     avatar.setColor(serializeColor());
@@ -76,6 +79,7 @@ public class Region {
   public void load(final DMProto.Avatar avatar) {
     isAvatar = true;
     isDead = avatar.getIsDead();
+    isInvisible = avatar.getIsInvisible();
     if (avatar.getSymbol().length() == 0) {
       symbol = '?';
     }
@@ -115,8 +119,12 @@ public class Region {
     h = r.getH();
   }
 
-  boolean isVisible() {
+  boolean isRegionVisible() {
     return parent.isVisible();
+  }
+
+  boolean isAvatarVisible() {
+    return !isInvisible;
   }
 
   void toggleState() {
@@ -125,6 +133,13 @@ public class Region {
       return;
     }
     parent.toggleState();
+  }
+
+  void toggleAvatarVisibility() {
+    if (!isAvatar) {
+      return;
+    }
+    isInvisible = !isInvisible;
   }
 
   void adjustDims(final int dx, final int dy, final int dw, final int dh) {
