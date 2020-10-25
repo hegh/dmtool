@@ -38,8 +38,6 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class MapPanel
   extends Canvas {
-  private static final String SKULL = "\u2620";
-
   private static final int SCROLL_DIST = 25;
   private static final int LEFT = 1;
   private static final int RIGHT = 2;
@@ -163,6 +161,7 @@ public class MapPanel
   Region activeRegion; // If in a region.
   int sx, sy; // Starting mouse coordinates for a resize or drag operation.
   int xm, ym, wm, hm; // Multipliers for delta x/y/w/h of region when dragging.
+  int lw, lh; // Last avatar size. Used when creating a new avatar.
   boolean dragging = false;
 
   void setMultipliers(final int xm, final int wm, final int ym, final int hm) {
@@ -216,6 +215,10 @@ public class MapPanel
         final double dy = Math.ceil(invScale * (my - sy));
         dragging = false;
         activeRegion.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
+        if (activeRegion.isAvatar) {
+          lw = activeRegion.w;
+          lh = activeRegion.h;
+        }
         activeRegion.fontSize = null;
         if (newRegion) {
           int parentID = 0;
@@ -553,7 +556,14 @@ public class MapPanel
     final NewAvatarDialog.AvatarSelectionResult result = NewAvatarDialog.showDialog(parentWindow);
     if (result != null) {
       final Point mouse = windowToImageCoords(mx, my);
-      final Region r = parent.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, 40, 40);
+      // Disallow creation size < 5x5 to avoid something too small to see.
+      if (lw <= 5) {
+        lw = 40;
+      }
+      if (lh <= 5) {
+        lh = 40;
+      }
+      final Region r = parent.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, lw, lh);
       r.isAvatar = true;
       r.symbol = result.symbol;
       r.color = result.color;
