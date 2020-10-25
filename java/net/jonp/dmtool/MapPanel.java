@@ -92,7 +92,7 @@ public class MapPanel
     final int unscaledWidth, unscaledHeight;
 
     public Corners(final Region r) {
-      final double scale = parent.getScale(isPlayer);
+      final double scale = dmtool.getScale(isPlayer);
       final double invScale = 1.0 / scale;
       double bx = 0;
       double by = 0;
@@ -124,7 +124,7 @@ public class MapPanel
       unscaledWidth = (int)rWidth;
       unscaledHeight = (int)rHeight;
 
-      final Point off = parent.getOffset(isPlayer);
+      final Point off = dmtool.getOffset(isPlayer);
       left = (int)(off.x + scale * rLeft);
       right = (int)(off.x + scale * rRight);
       top = (int)(off.y + scale * rTop);
@@ -140,7 +140,7 @@ public class MapPanel
     }
   }
 
-  final DMTool parent;
+  final DMTool dmtool;
   final Window parentWindow;
   final boolean isPlayer;
 
@@ -172,8 +172,8 @@ public class MapPanel
     this.hm = hm;
   }
 
-  public MapPanel(final DMTool parent, final Window parentWindow, final boolean isPlayer) {
-    this.parent = parent;
+  public MapPanel(final DMTool dmtool, final Window parentWindow, final boolean isPlayer) {
+    this.dmtool = dmtool;
     this.parentWindow = parentWindow;
     this.isPlayer = isPlayer;
 
@@ -189,13 +189,13 @@ public class MapPanel
     SwingUtilities.invokeLater(() -> {
       createBufferStrategy(2);
     });
-    parent.addNewMapListener(() -> {
+    dmtool.addNewMapListener(() -> {
       rescale();
       repaint();
     });
 
     if (isPlayer) {
-      parent.addResumeListener(() -> {
+      dmtool.addResumeListener(() -> {
         rescale();
         repaint();
       });
@@ -211,7 +211,7 @@ public class MapPanel
 
         // Use Ceil so if the user saw even a small change while dragging, it
         // will appear as a change instead of as an ignored drag.
-        final double invScale = 1.0 / parent.getScale(isPlayer);
+        final double invScale = 1.0 / dmtool.getScale(isPlayer);
         final double dx = Math.ceil(invScale * (mx - sx));
         final double dy = Math.ceil(invScale * (my - sy));
         dragging = false;
@@ -226,11 +226,11 @@ public class MapPanel
           if (newRegionParent != null) {
             parentID = newRegionParent.id;
           }
-          activeRegion = parent.getRegions(isPlayer)
+          activeRegion = dmtool.getRegions(isPlayer)
             .addRegion(parentID, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
           newRegion = false;
         }
-        parent.repaint();
+        dmtool.repaint();
       }
 
       @Override
@@ -337,8 +337,8 @@ public class MapPanel
       else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
         // Zoom in such that the same point remains under the mouse cursor
         // before/after zooming.
-        final Point off = parent.getOffset(isPlayer);
-        double scale = parent.getScale(isPlayer);
+        final Point off = dmtool.getOffset(isPlayer);
+        double scale = dmtool.getScale(isPlayer);
         final double invScale = 1.0 / scale;
 
         // Calculate mouse point in image coordinates.
@@ -348,8 +348,8 @@ public class MapPanel
         scale -= scale * 0.05 * e.getWheelRotation();
         final int nox = (int)(mx - ix * scale);
         final int noy = (int)(my - iy * scale);
-        parent.setScale(scale);
-        parent.setOffset(new Point(nox, noy));
+        dmtool.setScale(scale);
+        dmtool.setOffset(new Point(nox, noy));
       }
       else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
         scroll(RIGHT, e.getWheelRotation());
@@ -357,7 +357,7 @@ public class MapPanel
       else {
         return;
       }
-      parent.repaint();
+      dmtool.repaint();
     });
 
     addKeyListener(new KeyAdapter() {
@@ -441,22 +441,22 @@ public class MapPanel
   }
 
   private void togglePauseCommand() {
-    parent.togglePause();
+    dmtool.togglePause();
   }
 
   private void newMapCommand() {
-    final JFileChooser chooser = new JFileChooser(parent.getDirectory());
+    final JFileChooser chooser = new JFileChooser(dmtool.getDirectory());
     final FileNameExtensionFilter filter =
       new FileNameExtensionFilter("Supported Images", ImageIO.getReaderFileSuffixes());
     chooser.setFileFilter(filter);
     final int result = chooser.showOpenDialog(parentWindow);
-    parent.setDirectory(chooser.getCurrentDirectory());
+    dmtool.setDirectory(chooser.getCurrentDirectory());
     if (result != JFileChooser.APPROVE_OPTION) {
       System.err.println("Chose dis-approval option " + result);
       return;
     }
     try {
-      parent.newMap(chooser.getSelectedFile());
+      dmtool.newMap(chooser.getSelectedFile());
       System.err.println("Loaded image \"" + chooser.getSelectedFile() + "\"");
     }
     catch (final IOException e) {
@@ -469,30 +469,30 @@ public class MapPanel
   }
 
   private void saveCommand() {
-    if (parent.getActiveSave() == null) {
+    if (dmtool.getActiveSave() == null) {
       saveAsCommand();
       return;
     }
     try {
-      parent.save(parent.getActiveSave());
-      System.err.println("Saved to \"" + parent.getActiveSave() + "\"");
+      dmtool.save(dmtool.getActiveSave());
+      System.err.println("Saved to \"" + dmtool.getActiveSave() + "\"");
     }
     catch (final IOException e) {
       JOptionPane.showMessageDialog(parentWindow, "Failed to save file: " + e.getMessage(),
                                     "Save Error", JOptionPane.ERROR_MESSAGE);
-      System.err.println("Failed to write save file \"" + parent.getActiveSave() + "\"");
+      System.err.println("Failed to write save file \"" + dmtool.getActiveSave() + "\"");
       e.printStackTrace();
     }
   }
 
   private void saveAsCommand() {
-    final JFileChooser chooser = new JFileChooser(parent.getDirectory());
+    final JFileChooser chooser = new JFileChooser(dmtool.getDirectory());
     final FileNameExtensionFilter filter =
       new FileNameExtensionFilter("Saved Maps", DMTool.SAVE_FILE_EXTENSION);
     chooser.setFileFilter(filter);
-    chooser.setSelectedFile(parent.getActiveSave());
+    chooser.setSelectedFile(dmtool.getActiveSave());
     final int result = chooser.showSaveDialog(parentWindow);
-    parent.setDirectory(chooser.getCurrentDirectory());
+    dmtool.setDirectory(chooser.getCurrentDirectory());
     if (result != JFileChooser.APPROVE_OPTION) {
       System.err.println("Chose dis-approval option " + result);
       return;
@@ -502,23 +502,23 @@ public class MapPanel
     if (!file.getName().endsWith(".dmap")) {
       file = new File(file.getPath() + ".dmap");
     }
-    parent.setActiveSave(file);
+    dmtool.setActiveSave(file);
     saveCommand();
   }
 
   private void openCommand() {
-    final JFileChooser chooser = new JFileChooser(parent.getDirectory());
+    final JFileChooser chooser = new JFileChooser(dmtool.getDirectory());
     final FileNameExtensionFilter filter =
       new FileNameExtensionFilter("Saved Maps", DMTool.SAVE_FILE_EXTENSION);
     chooser.setFileFilter(filter);
     final int result = chooser.showOpenDialog(parentWindow);
-    parent.setDirectory(chooser.getCurrentDirectory());
+    dmtool.setDirectory(chooser.getCurrentDirectory());
     if (result != JFileChooser.APPROVE_OPTION) {
       System.err.println("Chose dis-approval option " + result);
       return;
     }
     try {
-      parent.open(chooser.getSelectedFile());
+      dmtool.open(chooser.getSelectedFile());
       System.err.println("Loaded \"" + chooser.getSelectedFile() + "\"");
     }
     catch (final IOException e) {
@@ -530,7 +530,7 @@ public class MapPanel
   }
 
   private void quitCommand() {
-    parent.quit();
+    dmtool.quit();
   }
 
   private void newRegionCommand(final boolean isSibling) {
@@ -564,19 +564,19 @@ public class MapPanel
       if (lh <= 5) {
         lh = 40;
       }
-      final Region r = parent.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, lw, lh);
+      final Region r = dmtool.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, lw, lh);
       r.isAvatar = true;
       r.symbol = result.symbol;
       r.color = result.color;
     }
-    parent.repaint();
+    dmtool.repaint();
   }
 
   private void deleteRegionCommand() {
     if (activeRegion != null) {
-      parent.getRegions(isPlayer).removeRegion(activeRegion);
+      dmtool.getRegions(isPlayer).removeRegion(activeRegion);
       activeRegion = null;
-      parent.repaint();
+      dmtool.repaint();
     }
   }
 
@@ -585,18 +585,18 @@ public class MapPanel
       return;
     }
 
-    final Region r = parent.getRegions(isPlayer).duplicate(activeRegion);
+    final Region r = dmtool.getRegions(isPlayer).duplicate(activeRegion);
     if (!isSibling || r.isAvatar) { // Disallow avatar siblings.
-      parent.getRegions(isPlayer).deparent(r);
+      dmtool.getRegions(isPlayer).deparent(r);
     }
     detectMouseOverRegion();
-    parent.repaint();
+    dmtool.repaint();
   }
 
   private void toggleRegionStateCommand() {
     if (activeRegion != null) {
       activeRegion.toggleState();
-      parent.repaint();
+      dmtool.repaint();
     }
   }
 
@@ -624,8 +624,8 @@ public class MapPanel
     // non-avatars.
     Region avatar = null;
     Region nonAvatar = null;
-    final double scale = parent.getScale(isPlayer);
-    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+    final double scale = dmtool.getScale(isPlayer);
+    for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       for (final Region r : group.getChildren()) {
         if (new Corners(r).contains(mx, my)) {
           if (r.isAvatar) {
@@ -644,11 +644,11 @@ public class MapPanel
   }
 
   Point windowToImageCoords(int x, int y) {
-    final Point off = parent.getOffset(isPlayer);
+    final Point off = dmtool.getOffset(isPlayer);
     x -= off.x;
     y -= off.y;
 
-    final double invScale = 1.0 / parent.getScale(isPlayer);
+    final double invScale = 1.0 / dmtool.getScale(isPlayer);
     x = (int)(x * invScale);
     y = (int)(y * invScale);
     return new Point(x, y);
@@ -676,24 +676,25 @@ public class MapPanel
       default:
         throw new IllegalArgumentException("Unknown scroll direction: " + direction);
     }
-    final Point off = parent.getOffset(isPlayer);
-    off.x += SCROLL_DIST * xm * value;
-    off.y += SCROLL_DIST * ym * value;
-    parent.repaint();
+    final Point noff = new Point(dmtool.getOffset(isPlayer));
+    noff.x += SCROLL_DIST * xm * value;
+    noff.y += SCROLL_DIST * ym * value;
+    dmtool.setOffset(noff);
+    dmtool.repaint();
   }
 
   private void rescale() {
-    if (parent.getImage(isPlayer) == null) {
+    if (dmtool.getImage(isPlayer) == null) {
       imgWidth = 1;
       imgHeight = 1;
       if (!isPlayer) {
-        parent.setScale(1.0);
+        dmtool.setScale(1.0);
       }
       return;
     }
 
-    imgWidth = parent.getImage(isPlayer).getWidth(this);
-    imgHeight = parent.getImage(isPlayer).getHeight(this);
+    imgWidth = dmtool.getImage(isPlayer).getWidth(this);
+    imgHeight = dmtool.getImage(isPlayer).getHeight(this);
 
     if (isPlayer) {
       return;
@@ -720,7 +721,7 @@ public class MapPanel
         scale = (double)h / (double)imgHeight;
       }
     }
-    parent.setScale(scale);
+    dmtool.setScale(scale);
   }
 
   public void drawAvatar(final Graphics2D g, final Region r) {
@@ -790,7 +791,7 @@ public class MapPanel
     // Draw dead avatars, then live.
     final Collection<Region> deadAvatars = new ArrayList<>();
     final Collection<Region> liveAvatars = new ArrayList<>();
-    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+    for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       for (final Region r : group.getChildren()) {
         if (!r.isAvatar) {
           continue;
@@ -832,8 +833,8 @@ public class MapPanel
     g.fillRect(0, 0, imgWidth, imgHeight);
 
     final ArrayList<RegionGroup> drawOrder =
-      new ArrayList<>(parent.getRegions(isPlayer).getGroups().size());
-    for (final RegionGroup group : parent.getRegions(isPlayer).getGroups()) {
+      new ArrayList<>(dmtool.getRegions(isPlayer).getGroups().size());
+    for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       if (!group.isVisible() && isPlayer) {
         // Player doesn't draw hidden regions.
         continue;
@@ -883,7 +884,7 @@ public class MapPanel
 
   @Override
   public void paint(final Graphics og) {
-    final Image img = parent.getImage(isPlayer);
+    final Image img = dmtool.getImage(isPlayer);
     if (img == null) {
       og.setColor(Color.black);
       final Rectangle b = og.getClipBounds();
@@ -891,8 +892,8 @@ public class MapPanel
       return;
     }
 
-    final Point off = parent.getOffset(isPlayer);
-    final double scale = parent.getScale(isPlayer);
+    final Point off = dmtool.getOffset(isPlayer);
+    final double scale = dmtool.getScale(isPlayer);
     final AffineTransform transform = new AffineTransform();
     transform.translate(off.x, off.y);
     transform.scale(scale, scale);
@@ -924,7 +925,7 @@ public class MapPanel
         drawControls(g, activeRegion);
       }
 
-      if (parent.isPaused()) {
+      if (dmtool.isPaused()) {
         // Rotate slowly between red, white, red, black, ...
         final int t = (int)(System.currentTimeMillis() / 3 % 1024);
         int red;
