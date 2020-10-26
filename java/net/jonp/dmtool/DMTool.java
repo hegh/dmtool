@@ -225,9 +225,12 @@ public class DMTool {
     final ZipOutputStream zip = new ZipOutputStream(out);
     try {
       zip.setLevel(9);
+
+      // Version 1 will fail to load if Fog-of-War is used on a region.
+      // Version 2 supports Fog-of-War (region state FOGGED).
       final ZipEntry version = new ZipEntry("version");
       zip.putNextEntry(version);
-      zip.write(DMProto.Version.newBuilder().setFormat(SAVE_FILE_FORMAT).setVersion(1).build()
+      zip.write(DMProto.Version.newBuilder().setFormat(SAVE_FILE_FORMAT).setVersion(2).build()
         .toByteArray());
 
       final ZipEntry metadata = new ZipEntry("metadata");
@@ -265,7 +268,8 @@ public class DMTool {
       if (!version.getFormat().equals(SAVE_FILE_FORMAT)) {
         throw new IOException("Not a DMTool saved map");
       }
-      if (version.getVersion() != 1) {
+      if (version.getVersion() != 1 && version.getVersion() != 2) {
+        // Version 1 is forward-compatible with Version 2.
         throw new IOException("Cannot parse save file: Of unsupported version " +
                               version.getVersion());
       }

@@ -24,6 +24,7 @@ import java.awt.font.LineMetrics;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.RasterFormatException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -46,10 +47,12 @@ public class MapPanel
   private static final int DOWN = 4;
 
   private static final Color PLAYER_MASK_COLOR = new Color(0, 0, 0, 255);
+  private static final Color PLAYER_FOGGED_MASK_COLOR = new Color(0, 0, 0, 128);
   private static final Color DM_EMPTY_MASK_COLOR = new Color(0, 0, 0, 128);
   private static final Color DM_HIDDEN_MASK_COLOR = new Color(0, 0, 128, 128);
-  private static final Color DM_SELECTION_MASK_COLOR = new Color(0, 128, 0, 128);
-  private static final Color DM_ACTIVE_MASK_COLOR = new Color(128, 128, 0, 128);
+  private static final Color DM_SELECTION_MASK_COLOR = new Color(0, 192, 0, 128);
+  private static final Color DM_ACTIVE_MASK_COLOR = new Color(255, 255, 0, 64);
+  private static final Color DM_FOGGED_MASK_COLOR = new Color(192, 0, 192, 128);
 
   private static final int HANDLE_SIZE = 6;
   private static final Color HANDLE_COLOR = Color.red;
@@ -141,8 +144,9 @@ public class MapPanel
   final Color emptyMaskColor; // When there is no region.
   final Color hiddenMaskColor; // When the region is hidden.
   final Color selectionMaskColor; // When drawing a selection box.
-  final Color activeMaskColor; // When a region (other than a selection box) is
+  final Color activeMaskColor; // When a region (but not a selection box) is
                                // active.
+  final Color foggedMaskColor;
 
   // Updated when the map changes.
   int imgWidth = 1;
@@ -220,12 +224,14 @@ public class MapPanel
       hiddenMaskColor = PLAYER_MASK_COLOR;
       selectionMaskColor = PLAYER_MASK_COLOR;
       activeMaskColor = PLAYER_MASK_COLOR;
+      foggedMaskColor = PLAYER_FOGGED_MASK_COLOR;
     }
     else {
       emptyMaskColor = DM_EMPTY_MASK_COLOR;
       hiddenMaskColor = DM_HIDDEN_MASK_COLOR;
       selectionMaskColor = DM_SELECTION_MASK_COLOR;
       activeMaskColor = DM_ACTIVE_MASK_COLOR;
+      foggedMaskColor = DM_FOGGED_MASK_COLOR;
     }
 
     SwingUtilities.invokeLater(() -> {
@@ -473,7 +479,7 @@ public class MapPanel
                 toggleRegionStateCommand();
                 break;
               case KeyEvent.VK_V:
-                toggleAvatarVisibilityCommand();
+                toggleVisibilityCommand();
                 break;
               case KeyEvent.VK_DELETE:
               case KeyEvent.VK_BACK_SPACE:
@@ -700,33 +706,36 @@ public class MapPanel
   }
 
   private void toggleRegionStateCommand() {
-    if (activeRegion != null) {
-      if (avatarSelection.containsKey(activeRegion.id)) {
-        for (final Region r : avatarSelection.values()) {
-          r.toggleState();
-        }
-      }
-      else {
-        activeRegion.toggleState();
-      }
-      dmtool.repaint();
-    }
-  }
-
-  private void toggleAvatarVisibilityCommand() {
     if (activeRegion == null) {
-      return;
-    }
-    if (!activeRegion.isAvatar) {
       return;
     }
     if (avatarSelection.containsKey(activeRegion.id)) {
       for (final Region r : avatarSelection.values()) {
-        r.toggleAvatarVisibility();
+        r.toggleState();
       }
     }
     else {
-      activeRegion.toggleAvatarVisibility();
+      activeRegion.toggleState();
+    }
+    dmtool.repaint();
+  }
+
+  private void toggleVisibilityCommand() {
+    if (activeRegion == null) {
+      return;
+    }
+    if (!activeRegion.isAvatar) {
+      activeRegion.toggleRegionVisibility();
+    }
+    else {
+      if (avatarSelection.containsKey(activeRegion.id)) {
+        for (final Region r : avatarSelection.values()) {
+          r.toggleAvatarVisibility();
+        }
+      }
+      else {
+        activeRegion.toggleAvatarVisibility();
+      }
     }
     dmtool.repaint();
   }
@@ -1060,62 +1069,119 @@ public class MapPanel
     }
   }
 
-  // Hides/shades areas of the screen that are not being shared.
-  private Image drawMask(final Rectangle bounds) {
-    // Need to use a new image so we can black the entire thing, then make
-    // transparent windows in it to see through.
-    final BufferedImage img =
-      new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
-    final Graphics2D g = img.createGraphics();
+  private Image safeGetSubimage(final BufferedImage img, final Rectangle out, int x, int y, int w,
+                                int h) {
+    if (x < 0) {
+      w += x;
+      x = 0;
+    }
+    if (y < 0) {
+      h += y;
+      y = 0;
+    }
+    if (x + w >= img.getWidth()) {
+      w = img.getWidth() - x - 1;
+    }
+    if (y + h >= img.getHeight()) {
+      h = img.getHeight() - y - 1;
+    }
+    if (w <= 0 || h <= 0) {
+      return null;
+    }
+    out.x = x;
+    out.y = y;
+    out.width = w;
+    out.height = h;
+    try {
+      return img.getSubimage(x, y, w, h);
+    }
+    catch (final RasterFormatException e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
 
+  // Hides/shades areas of the screen that are not being shared.
+  private void drawMask(final Rectangle bounds, final BufferedImage preAvatarImg,
+                        final BufferedImage postAvatarImg, final Graphics2D g) {
     // Black out the entire image.
-    g.setComposite(AlphaComposite.Src);
+    g.setComposite(AlphaComposite.SrcOver);
     g.setColor(emptyMaskColor);
     g.fillRect(0, 0, bounds.width, bounds.height);
 
     final ArrayList<RegionGroup> drawOrder =
       new ArrayList<>(dmtool.getRegions(isPlayer).getGroups().size());
     for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
-      if (!group.isVisible() && isPlayer) {
-        // Don't make hidden regions into player windows.
-        continue;
-      }
       drawOrder.add(group);
     }
-    if (!isPlayer) {
-      // Player sees everything the same; DM needs transparent windows drawn
-      // after translucent masks.
-      drawOrder.sort((final RegionGroup a, final RegionGroup b) -> {
-        // Draw the hidden regions first.
-        if (!a.isVisible() && b.isVisible()) {
+    drawOrder.sort((final RegionGroup a, final RegionGroup b) -> {
+      // Draw the hidden regions first.
+      if (a.isVisible() != b.isVisible()) {
+        if (!a.isVisible()) {
           return -1;
         }
-        if (a.isVisible() && !b.isVisible()) {
-          return 1;
+        return 1;
+      }
+      // Then the fogged regions.
+      if (a.isFogged() != b.isFogged()) {
+        if (a.isFogged()) {
+          return -1;
         }
-        return 0;
-      });
-    }
+        return 1;
+      }
+      // And finally, the visible regions.
+      return 0;
+    });
     for (final RegionGroup group : drawOrder) {
       for (final Region r : group.getChildren()) {
         if (r.isAvatar) {
           // These are drawn elsewhere.
           continue;
         }
+
+        final Corners c = new Corners(r);
         if (r.isRegionVisible()) {
-          // Make visible regions transparent.
+          // Make visible regions transparent, for both the DM and the player.
+          final Rectangle rect = new Rectangle();
+          final Image img = safeGetSubimage(postAvatarImg, rect, c.left, c.top, c.width, c.height);
+          if (img != null) {
+            g.drawImage(img, rect.x, rect.y, rect.width, rect.height, this);
+          }
           g.setColor(new Color(0, 0, 0, 0));
         }
-        else {
+        else if (r.isRegionFogged()) {
+          if (isPlayer) {
+            // Remove avatars from this region for players.
+            final Rectangle rect = new Rectangle();
+            final Image img = safeGetSubimage(preAvatarImg, rect, c.left, c.top, c.width, c.height);
+            if (img != null) {
+              g.drawImage(img, rect.x, rect.y, rect.width, rect.height, this);
+            }
+          }
+          // Indicate the region is fogged.
+          g.setColor(foggedMaskColor);
+        }
+        else { // Must be hidden.
+          if (isPlayer) {
+            // Players can't see this at all.
+            continue;
+          }
+
+          // Remove the dark mask over the area.
+          final Rectangle rect = new Rectangle();
+          final Image img = safeGetSubimage(postAvatarImg, rect, c.left, c.top, c.width, c.height);
+          if (img != null) {
+            g.drawImage(img, rect.x, rect.y, rect.width, rect.height, this);
+          }
           g.setColor(hiddenMaskColor);
         }
 
-        final Corners c = new Corners(r);
         g.fillRect(c.left, c.top, c.width, c.height);
       }
     }
 
     if (activeRegion != null) {
+      // Remove the dark mask over the area.
       if (selectionBox) {
         g.setColor(selectionMaskColor);
       }
@@ -1125,35 +1191,46 @@ public class MapPanel
       final Corners c = new Corners(activeRegion);
       g.fillRect(c.left, c.top, c.width, c.height);
     }
-    g.dispose();
-    return img;
   }
 
   @Override
   public void paint(final Graphics og) {
-    final Image img = dmtool.getImage(isPlayer);
+    // Capture the pre-avatar image, which will be used for filling in "fogged"
+    // regions.
     final Rectangle b = og.getClipBounds();
-    if (img == null) {
-      og.setColor(Color.black);
-      og.fillRect(b.x, b.y, b.width, b.height);
-      return;
-    }
-
-    final Point off = dmtool.getOffset(isPlayer);
-    final double scale = dmtool.getScale(isPlayer);
-    final AffineTransform transform = new AffineTransform();
-    transform.translate(off.x, off.y);
-    transform.scale(scale, scale);
-    final Graphics2D g = (Graphics2D)getBufferStrategy().getDrawGraphics();
-    try {
+    final BufferedImage preAvatarImg =
+      new BufferedImage(b.width, b.height, BufferedImage.TYPE_INT_ARGB);
+    {
+      final Graphics2D g = preAvatarImg.createGraphics();
       g.setComposite(AlphaComposite.Src);
       g.setColor(Color.black); // Black mat in case the image is small.
       g.fillRect(0, 0, b.width, b.height);
-      g.drawImage(img, transform, this);
 
-      g.setComposite(AlphaComposite.SrcOver);
+      final Image img = dmtool.getImage(isPlayer);
+      if (img != null) {
+        final AffineTransform transform = new AffineTransform();
+        final Point off = dmtool.getOffset(isPlayer);
+        transform.translate(off.x, off.y);
+        final double scale = dmtool.getScale(isPlayer);
+        transform.scale(scale, scale);
+        g.drawImage(img, transform, this);
+      }
+    }
+
+    // Also capture the post-avatar image, for drawing visible regions.
+    final BufferedImage postAvatarImg =
+      new BufferedImage(b.width, b.height, BufferedImage.TYPE_INT_ARGB);
+    {
+      final Graphics2D g = postAvatarImg.createGraphics();
+      g.setComposite(AlphaComposite.Src);
+      g.drawImage(preAvatarImg, null, this);
       drawAvatars(g);
-      g.drawImage(drawMask(b), null, this);
+    }
+
+    final Graphics2D g = (Graphics2D)getBufferStrategy().getDrawGraphics();
+    try {
+      g.drawImage(postAvatarImg, null, this);
+      drawMask(b, preAvatarImg, postAvatarImg, g);
 
       if (isPlayer) {
         return;

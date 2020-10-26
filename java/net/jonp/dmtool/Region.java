@@ -123,6 +123,10 @@ public class Region {
     return parent.isVisible();
   }
 
+  boolean isRegionFogged() {
+    return parent.isFogged();
+  }
+
   boolean isAvatarVisible() {
     return !isInvisible;
   }
@@ -140,6 +144,10 @@ public class Region {
       return;
     }
     isInvisible = !isInvisible;
+  }
+
+  void toggleRegionVisibility() {
+    parent.toggleVisibility();
   }
 
   void adjustDims(final int dx, final int dy, final int dw, final int dh) {

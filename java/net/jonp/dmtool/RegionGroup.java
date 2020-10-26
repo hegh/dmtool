@@ -14,6 +14,7 @@ public class RegionGroup {
   public static enum State {
     HIDDEN,
     VISIBLE,
+    FOGGED,
   }
 
   public Map<Integer, Region> children = new HashMap<>();
@@ -45,6 +46,9 @@ public class RegionGroup {
       case VISIBLE:
         group.setVisibility(DMProto.Group.State.VISIBLE);
         break;
+      case FOGGED:
+        group.setVisibility(DMProto.Group.State.FOGGED);
+        break;
       default:
         throw new IllegalStateException("Unknown visibility state: " + state);
     }
@@ -67,6 +71,9 @@ public class RegionGroup {
         break;
       case VISIBLE:
         state = State.VISIBLE;
+        break;
+      case FOGGED:
+        state = State.FOGGED;
         break;
       default:
         // TODO: Support Fogged.
@@ -106,12 +113,27 @@ public class RegionGroup {
     return state == State.VISIBLE;
   }
 
+  public boolean isFogged() {
+    return state == State.FOGGED;
+  }
+
   public void toggleState() {
+    // Hidden -> Visible <-> Fogged
     if (state == State.VISIBLE) {
-      state = State.HIDDEN; // TODO: Switch to Fogged once implemented.
+      state = State.FOGGED;
     }
     else {
       state = State.VISIBLE;
+    }
+  }
+
+  public void toggleVisibility() {
+    // Fogged -> Hidden <-> Visible
+    if (state == State.HIDDEN) {
+      state = State.VISIBLE;
+    }
+    else {
+      state = State.HIDDEN;
     }
   }
 }

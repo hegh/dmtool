@@ -66,7 +66,8 @@ shares the Player View window, **not** your entire screen.
 
 In Windows there are some issues with sharing the Player View while it is
 covered by another window. What seems to work best is half-screening the
-Player and DM views side-by-side.
+Player and DM views side-by-side. This may be specifically related to Google
+Hangouts.
 
 Everything requires hotkeys, and there are no instructions built into the
 tool, so you'll want to become familiar with this chart. All controls are
@@ -78,8 +79,8 @@ through the DM view; the Player view can only be resized or closed.
 | A   | Create a new avatar to represent a player or NPC. Opens a dialog to choose a symbol and color. |
 | R   | Create a new region to control visibility. Click/drag to draw the box. |
 | Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for masking oddly-shaped rooms. |
-| Space | Toggle player visibility of the region under the cursor, or the life/death status of the avatar under the cursor. |
-| V   | Toggle visibility of an avatar. Invisible avatars can only be seen by the DM. Does nothing for regions. |
+| Space | Toggle visibility/fogging of the region under the cursor, or the life/death status of the avatar under the cursor. For regions: Hidden -> Visible <-> Fogged. |
+| V   | Toggle avatar and region visibility. For regions: Fogged -> Hidden <-> Visible. |
 | D   | Duplicate the region or avatar under the cursor. Repeated duplications will surround the original object. |
 | Shift+D | Like D, but the new region shares visibility with the region that was under the cursor. For avatars, identical to D. |
 | Alt+Wheel | Adjust avatar brightness. |
