@@ -1,0 +1,3 @@
+#!/bin/bash
+
+bazel build //java:DMTool_deploy.jar && echo "Success: bazel-bin/java/DMTool_deploy.jar" || exit 1
