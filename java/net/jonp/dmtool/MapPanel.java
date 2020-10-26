@@ -1103,9 +1103,15 @@ public class MapPanel
 
   // Hides/shades areas of the screen that are not being shared.
   private void drawMask(final Rectangle bounds, final BufferedImage preAvatarImg,
-                        final BufferedImage postAvatarImg, final Graphics2D g) {
+                        final BufferedImage postAvatarImg, final Graphics2D graphics) {
+    // Draw into a fresh image so we don't over-darken any areas with
+    // overlapping regions.
+    final BufferedImage overlay =
+      new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+    final Graphics2D g = overlay.createGraphics();
+
     // Black out the entire image.
-    g.setComposite(AlphaComposite.SrcOver);
+    g.setComposite(AlphaComposite.Src);
     g.setColor(emptyMaskColor);
     g.fillRect(0, 0, bounds.width, bounds.height);
 
@@ -1142,6 +1148,7 @@ public class MapPanel
         final Corners c = new Corners(r);
         if (r.isRegionVisible()) {
           // Make visible regions transparent, for both the DM and the player.
+          g.setComposite(AlphaComposite.Src);
           final Rectangle rect = new Rectangle();
           final Image img = safeGetSubimage(postAvatarImg, rect, c.left, c.top, c.width, c.height);
           if (img != null) {
@@ -1152,11 +1159,16 @@ public class MapPanel
         else if (r.isRegionFogged()) {
           if (isPlayer) {
             // Remove avatars from this region for players.
+            g.setComposite(AlphaComposite.Src);
             final Rectangle rect = new Rectangle();
             final Image img = safeGetSubimage(preAvatarImg, rect, c.left, c.top, c.width, c.height);
             if (img != null) {
               g.drawImage(img, rect.x, rect.y, rect.width, rect.height, this);
             }
+            g.setComposite(AlphaComposite.SrcOver);
+          }
+          else {
+            g.setComposite(AlphaComposite.Src);
           }
           // Indicate the region is fogged.
           g.setColor(foggedMaskColor);
@@ -1168,6 +1180,7 @@ public class MapPanel
           }
 
           // Remove the dark mask over the area.
+          g.setComposite(AlphaComposite.Src);
           final Rectangle rect = new Rectangle();
           final Image img = safeGetSubimage(postAvatarImg, rect, c.left, c.top, c.width, c.height);
           if (img != null) {
@@ -1191,6 +1204,8 @@ public class MapPanel
       final Corners c = new Corners(activeRegion);
       g.fillRect(c.left, c.top, c.width, c.height);
     }
+
+    graphics.drawImage(overlay, null, this);
   }
 
   @Override
