@@ -762,14 +762,20 @@ public class MapPanel
   private Region regionAt(final int x, final int y) {
     // Pick the most recently created region, preferring avatars over
     // non-avatars.
-    Region avatar = null;
+    Region liveAvatar = null;
+    Region deadAvatar = null;
     Region nonAvatar = null;
     final double scale = dmtool.getScale(isPlayer);
     for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       for (final Region r : group.getChildren()) {
         if (new Corners(r).contains(mx, my)) {
           if (r.isAvatar) {
-            avatar = r;
+            if (r.isDead) {
+              deadAvatar = r;
+            }
+            else {
+              liveAvatar = r;
+            }
           }
           else {
             nonAvatar = r;
@@ -777,8 +783,11 @@ public class MapPanel
         }
       }
     }
-    if (avatar != null) {
-      return avatar;
+    if (liveAvatar != null) {
+      return liveAvatar;
+    }
+    if (deadAvatar != null) {
+      return deadAvatar;
     }
     return nonAvatar;
   }
