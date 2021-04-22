@@ -687,6 +687,7 @@ public class MapPanel
   private void deleteRegionCommand() {
     if (activeRegion != null) {
       dmtool.getRegions(isPlayer).removeRegion(activeRegion);
+      avatarSelection.remove(activeRegion.id);
       activeRegion = null;
       dmtool.repaint();
     }
