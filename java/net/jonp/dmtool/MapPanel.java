@@ -303,6 +303,14 @@ public class MapPanel
           // If drawing a selection box, mark the new selections.
           if (selectionBox) {
             selectionBox = false;
+            if (activeRegion.w < 0) {
+              activeRegion.x += activeRegion.w;
+              activeRegion.w *= -1;
+            }
+            if (activeRegion.h < 0) {
+              activeRegion.y += activeRegion.h;
+              activeRegion.h *= -1;
+            }
             for (final RegionGroup g : dmtool.getRegions(isPlayer).getGroups()) {
               for (final Region r : g.getChildren()) {
                 if (!r.isAvatar) {
