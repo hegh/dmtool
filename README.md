@@ -99,6 +99,7 @@ through the DM view; the Player view can only be resized or closed.
 | Ctrl+O | Open a ".dmap" file saved by this tool. |
 | Ctrl+Q | Quit. Does not ask for confirmation. |
 | Arrow keys | Scroll around the map. |
+| Home | Reset zoom and offset. |
 | Mouse Wheel | Scroll up/down. |
 | Shift+Wheel | Scroll left/right. |
 | Ctrl+Wheel | Zoon in/out. |

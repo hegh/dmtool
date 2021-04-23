@@ -512,6 +512,9 @@ public class MapPanel
               case KeyEvent.VK_DOWN:
                 scroll(DOWN, 1);
                 break;
+              case KeyEvent.VK_HOME:
+                resetViewCommand();
+                break;
             }
           }
           else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
@@ -550,6 +553,12 @@ public class MapPanel
         }
       });
     });
+  }
+
+  private void resetViewCommand() {
+    dmtool.setOffset(new Point(0, 0));
+    dmtool.setScale(1);
+    dmtool.repaint();
   }
 
   private void togglePauseCommand() {
