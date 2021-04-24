@@ -12,7 +12,13 @@ public class Region {
   public int x, y;
   public int w, h;
 
-  public boolean isAvatar;
+  public static enum Type {
+    REGION,
+    AVATAR,
+    AREA,
+  }
+
+  public Type type;
   public boolean isDead;
   public boolean isInvisible;
   public char symbol;
@@ -28,7 +34,7 @@ public class Region {
   @Override
   public Region clone() {
     final Region copy = new Region(parent, x, y, w, h);
-    copy.isAvatar = isAvatar;
+    copy.type = type;
     copy.isDead = isDead;
     copy.isInvisible = isInvisible;
     copy.symbol = symbol;
@@ -48,6 +54,7 @@ public class Region {
     id = nextID;
     nextID++;
 
+    type = Type.REGION;
     this.parent = parent;
     this.x = x;
     this.y = y;
@@ -62,6 +69,7 @@ public class Region {
   }
 
   public void load(final DMProto.Region region) {
+    type = Type.REGION;
     load(region.getRect());
   }
 
@@ -77,7 +85,7 @@ public class Region {
   }
 
   public void load(final DMProto.Avatar avatar) {
-    isAvatar = true;
+    type = Type.AVATAR;
     isDead = avatar.getIsDead();
     isInvisible = avatar.getIsInvisible();
     if (avatar.getSymbol().length() == 0) {
@@ -89,6 +97,21 @@ public class Region {
     index = avatar.getIndex();
     load(avatar.getColor());
     load(avatar.getRect());
+  }
+
+  public DMProto.Area serializeAsArea() {
+    final DMProto.Area.Builder area = DMProto.Area.newBuilder();
+    area.setIsInvisible(isInvisible);
+    area.setColor(serializeColor());
+    area.setRect(serializeRect());
+    return area.build();
+  }
+
+  public void load(DMProto.Area area) {
+    type = Type.AREA;
+    isInvisible = area.getIsInvisible();
+    load(area.getColor());
+    load(area.getRect());
   }
 
   private DMProto.RGBColor serializeColor() {
@@ -119,6 +142,18 @@ public class Region {
     h = r.getH();
   }
 
+  boolean isRegion() {
+    return type == Type.REGION;
+  }
+
+  boolean isAvatar() {
+    return type == Type.AVATAR;
+  }
+
+  boolean isArea() {
+    return type == Type.AREA;
+  }
+
   boolean isRegionVisible() {
     return parent.isVisible();
   }
@@ -131,16 +166,33 @@ public class Region {
     return !isInvisible;
   }
 
+  boolean isAreaVisible() {
+    return !isInvisible;
+  }
+
   void toggleState() {
-    if (isAvatar) {
-      isDead = !isDead;
-      return;
+    switch (type) {
+      case AVATAR:
+        isDead = !isDead;
+        break;
+      case AREA:
+        isInvisible = !isInvisible;
+        break;
+      case REGION:
+        parent.toggleState();
+        break;
     }
-    parent.toggleState();
   }
 
   void toggleAvatarVisibility() {
-    if (!isAvatar) {
+    if (!isAvatar()) {
+      return;
+    }
+    isInvisible = !isInvisible;
+  }
+
+  void toggleAreaVisibility() {
+    if (!isArea()) {
       return;
     }
     isInvisible = !isInvisible;

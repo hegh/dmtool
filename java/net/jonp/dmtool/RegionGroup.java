@@ -53,11 +53,16 @@ public class RegionGroup {
         throw new IllegalStateException("Unknown visibility state: " + state);
     }
     for (final Region child : children.values()) {
-      if (child.isAvatar) {
-        map.addAvatar(child.serializeAsAvatar());
-      }
-      else {
-        group.addRegion(child.serializeAsRegion());
+      switch (child.type) {
+        case AVATAR:
+          map.addAvatar(child.serializeAsAvatar());
+          break;
+        case REGION:
+          group.addRegion(child.serializeAsRegion());
+          break;
+        case AREA:
+          map.addArea(child.serializeAsArea());
+          break;
       }
     }
     map.addRegionGroup(group.build());

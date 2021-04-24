@@ -60,6 +60,15 @@ public class Regions {
       r.load(avatar);
       rg.addChild(r);
     }
+    for (final DMProto.Area area : map.getAreaList()) {
+      final RegionGroup rg = new RegionGroup();
+      groups.put(rg.id, rg);
+
+      final Region r = new Region();
+      r.parent = rg;
+      r.load(area);
+      rg.addChild(r);
+    }
   }
 
   public void clear() {
@@ -86,7 +95,7 @@ public class Regions {
   public Region duplicate(final Region old) {
     final Region r = old.clone();
     old.parent.addChild(r);
-    if (r.isAvatar) {
+    if (r.isAvatar()) {
       r.index = getNextIndex(r.symbol);
     }
     switch (old.nextDupPosition) {

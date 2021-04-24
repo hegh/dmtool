@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.imageio.ImageIO;
+import javax.swing.JColorChooser;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -159,7 +160,10 @@ public class MapPanel
   // If true, activeRegion is being created.
   // If activeRegion is null, it will be created on mouse-down.
   boolean newRegion = false;
+  boolean newArea = false; // If true, the new region is an area.
   RegionGroup newRegionParent = null;
+
+  Color lastAreaColor = new Color(0, 255, 0); // Also next, if newArea=true.
 
   // Selection, for moving multiple avatars at once. Will never contain regions.
   final Map<Integer, Region> avatarSelection = new HashMap<>();
@@ -271,7 +275,7 @@ public class MapPanel
           final double invScale = 1.0 / dmtool.getScale(isPlayer);
           final double dx = Math.ceil(invScale * (mx - sx));
           final double dy = Math.ceil(invScale * (my - sy));
-          if (activeRegion.isAvatar && avatarSelection.containsKey(activeRegion.id)) {
+          if (activeRegion.isAvatar() && avatarSelection.containsKey(activeRegion.id)) {
             // Adjust dimensions of all selected regions.
             for (final Region r : avatarSelection.values()) {
               r.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
@@ -283,7 +287,7 @@ public class MapPanel
             activeRegion.fontSize = null;
           }
 
-          if (activeRegion.isAvatar) {
+          if (activeRegion.isAvatar()) {
             // Record size to use on the next avatar created.
             lw = activeRegion.w;
             lh = activeRegion.h;
@@ -299,6 +303,12 @@ public class MapPanel
             }
             activeRegion = dmtool.getRegions(isPlayer)
               .addRegion(parentID, activeRegion.x, activeRegion.y, activeRegion.w, activeRegion.h);
+            if (newArea) {
+              newArea = false;
+              activeRegion.type = Region.Type.AREA;
+              activeRegion.color = lastAreaColor;
+              activeRegion.isInvisible = false;
+            }
           }
 
           // If drawing a selection box, mark the new selections.
@@ -314,7 +324,7 @@ public class MapPanel
             }
             for (final RegionGroup g : dmtool.getRegions(isPlayer).getGroups()) {
               for (final Region r : g.getChildren()) {
-                if (!r.isAvatar) {
+                if (!r.isAvatar()) {
                   continue;
                 }
                 if (activeRegion.intersects(r)) {
@@ -345,6 +355,7 @@ public class MapPanel
           if (dragging) { // Off-click cancels drag.
             dragging = false;
             newRegion = false;
+            newArea = false;
             detectMouseOverRegion();
             repaint();
             return;
@@ -361,7 +372,7 @@ public class MapPanel
             setMultipliers(0, 1, 0, 1);
             return;
           }
-          if ((activeRegion == null || !activeRegion.isAvatar) && e.getButton() == 3) {
+          if ((activeRegion == null || !activeRegion.isAvatar()) && e.getButton() == 3) {
             // Drag a selection box around avatars.
             final Point mouse = windowToImageCoords(mx, my);
             activeRegion = new Region(newRegionParent, mouse.x, mouse.y, 0, 0);
@@ -382,7 +393,7 @@ public class MapPanel
 
             setMultipliers(mouseStatus);
           }
-          if (activeRegion != null && activeRegion.isAvatar && e.getButton() == 3) {
+          if (activeRegion != null && activeRegion.isAvatar() && e.getButton() == 3) {
             if (avatarSelection.containsKey(activeRegion.id)) {
               // Start dragging selected avatars.
               sx = mx;
@@ -456,13 +467,13 @@ public class MapPanel
           }
           else if (e.getModifiersEx() == InputEvent.ALT_DOWN_MASK) {
             // Wheel down is positive, want to darken, so negate.
-            adjustAvatarColor(0.0f, 0.0f, (float)-e.getPreciseWheelRotation());
+            adjustColor(0.0f, 0.0f, (float)-e.getPreciseWheelRotation());
           }
           else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK)) {
-            adjustAvatarColor((float)-e.getPreciseWheelRotation(), 0.0f, 0.0f);
+            adjustColor((float)-e.getPreciseWheelRotation(), 0.0f, 0.0f);
           }
           else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
-            adjustAvatarColor(0.0f, (float)-e.getPreciseWheelRotation(), 0.0f);
+            adjustColor(0.0f, (float)-e.getPreciseWheelRotation(), 0.0f);
           }
           else {
             return;
@@ -483,6 +494,9 @@ public class MapPanel
                 break;
               case KeyEvent.VK_A:
                 newAvatarCommand();
+                break;
+              case KeyEvent.VK_E:
+                newAreaCommand();
                 break;
               case KeyEvent.VK_D:
                 duplicateRegionCommand(/* isSibling = */ false);
@@ -518,6 +532,9 @@ public class MapPanel
                 break;
               case KeyEvent.VK_HOME:
                 resetViewCommand();
+                break;
+              case KeyEvent.VK_C:
+                changeColorCommand();
                 break;
             }
           }
@@ -660,7 +677,7 @@ public class MapPanel
   }
 
   private void newRegionCommand(final boolean isSibling) {
-    if (isSibling && activeRegion != null && !activeRegion.isAvatar) {
+    if (isSibling && activeRegion != null && activeRegion.isRegion()) {
       newRegionParent = activeRegion.parent;
     }
     else {
@@ -668,6 +685,7 @@ public class MapPanel
     }
     activeRegion = null;
     newRegion = true;
+    newArea = false;
     mouseStatus = NEW_REGION;
     setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
   }
@@ -675,6 +693,7 @@ public class MapPanel
   private void cancelNewRegionCommand() {
     dragging = false;
     newRegion = false;
+    newArea = false;
     selectionBox = false;
     detectMouseOverRegion();
     repaint();
@@ -697,12 +716,51 @@ public class MapPanel
         lh = 40;
       }
       final Region r = dmtool.getRegions(isPlayer).addRegion(0, mouse.x, mouse.y, lw, lh);
-      r.isAvatar = true;
+      r.type = Region.Type.AVATAR;
       r.symbol = result.symbol;
       r.index = dmtool.getRegions(isPlayer).getNextIndex(r.symbol);
       r.color = result.color;
     }
     dmtool.repaint();
+  }
+
+  private void newAreaCommand() {
+    final Color result = JColorChooser.showDialog(this, "Area Color", lastAreaColor);
+    if (result != null) {
+      activeRegion = null;
+      newRegion = true;
+      newArea = true;
+      mouseStatus = NEW_REGION;
+      setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
+    }
+  }
+
+  private void changeColorCommand() {
+    if (activeRegion == null) {
+      return;
+    }
+    if (activeRegion.isRegion()) {
+      return;
+    }
+    String typeName;
+    if (activeRegion.isAvatar()) {
+      typeName = "Avatar";
+    }
+    else {
+      typeName = "Area";
+    }
+    final Color result = JColorChooser.showDialog(this, typeName + " Color", activeRegion.color);
+    if (result != null) {
+      if (avatarSelection.containsKey(activeRegion.id)) {
+        for (final Region r : avatarSelection.values()) {
+          r.color = result;
+        }
+      }
+      else {
+        activeRegion.color = result;
+      }
+      dmtool.repaint();
+    }
   }
 
   private void deleteRegionCommand() {
@@ -720,7 +778,7 @@ public class MapPanel
     }
 
     final Region r = dmtool.getRegions(isPlayer).duplicate(activeRegion);
-    if (!isSibling || r.isAvatar) { // Disallow avatar siblings.
+    if (!isSibling || !r.isRegion()) { // Only regions can have siblings.
       dmtool.getRegions(isPlayer).deparent(r);
     }
     detectMouseOverRegion();
@@ -746,18 +804,23 @@ public class MapPanel
     if (activeRegion == null) {
       return;
     }
-    if (!activeRegion.isAvatar) {
-      activeRegion.toggleRegionVisibility();
-    }
-    else {
-      if (avatarSelection.containsKey(activeRegion.id)) {
-        for (final Region r : avatarSelection.values()) {
-          r.toggleAvatarVisibility();
+    switch (activeRegion.type) {
+      case REGION:
+        activeRegion.toggleRegionVisibility();
+        break;
+      case AVATAR:
+        if (avatarSelection.containsKey(activeRegion.id)) {
+          for (final Region r : avatarSelection.values()) {
+            r.toggleAvatarVisibility();
+          }
         }
-      }
-      else {
-        activeRegion.toggleAvatarVisibility();
-      }
+        else {
+          activeRegion.toggleAvatarVisibility();
+        }
+        break;
+      case AREA:
+        activeRegion.toggleAreaVisibility();
+        break;
     }
     dmtool.repaint();
   }
@@ -782,25 +845,31 @@ public class MapPanel
   }
 
   private Region regionAt(final int x, final int y) {
-    // Pick the most recently created region, preferring avatars over
-    // non-avatars.
+    // Pick the most recently created region, preferring live avatars over
+    // dead avatars over areas over regions.
     Region liveAvatar = null;
     Region deadAvatar = null;
-    Region nonAvatar = null;
+    Region area = null;
+    Region region = null;
     final double scale = dmtool.getScale(isPlayer);
     for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       for (final Region r : group.getChildren()) {
         if (new Corners(r).contains(mx, my)) {
-          if (r.isAvatar) {
-            if (r.isDead) {
-              deadAvatar = r;
-            }
-            else {
-              liveAvatar = r;
-            }
-          }
-          else {
-            nonAvatar = r;
+          switch (r.type) {
+            case AVATAR:
+              if (r.isDead) {
+                deadAvatar = r;
+              }
+              else {
+                liveAvatar = r;
+              }
+              break;
+            case AREA:
+              area = r;
+              break;
+            case REGION:
+              region = r;
+              break;
           }
         }
       }
@@ -811,7 +880,10 @@ public class MapPanel
     if (deadAvatar != null) {
       return deadAvatar;
     }
-    return nonAvatar;
+    if (area != null) {
+      return area;
+    }
+    return region;
   }
 
   Point windowToImageCoords(int x, int y) {
@@ -854,11 +926,12 @@ public class MapPanel
     dmtool.repaint();
   }
 
-  void adjustAvatarColor(final float hue, final float saturation, final float brightness) {
+  void adjustColor(final float hue, final float saturation, final float brightness) {
     if (activeRegion == null) {
       return;
     }
-    if (!activeRegion.isAvatar) {
+    if (activeRegion.isRegion()) {
+      // Only works on avatars and areas.
       return;
     }
     if (activeRegion.isDead) {
@@ -1074,24 +1147,56 @@ public class MapPanel
     }
   }
 
-  private void drawAvatars(final Graphics2D g) {
-    // Draw dead avatars, then live.
+  private Color withAlpha(final Color c, final int alpha) {
+    return new Color(c.getRed(), c.getGreen(), c.getBlue(), alpha);
+  }
+
+  private void drawArea(final Graphics2D g, final Region r) {
+    if (isPlayer && !r.isAreaVisible()) {
+      return;
+    }
+
+    final Corners c = new Corners(r);
+    final Color translucent = withAlpha(r.color, 128);
+    g.setColor(translucent);
+    g.setComposite(AlphaComposite.SrcOver);
+    if (r.isAreaVisible()) {
+      g.fillRect(c.left, c.top, c.width - 1, c.height - 1);
+      g.setColor(r.color);
+      g.drawRect(c.left, c.top, c.width - 1, c.height - 1);
+    }
+    else {
+      // Rounded rect to indicate invisible.
+      g.fillRoundRect(c.left, c.top, c.width - 1, c.height - 1, c.width / 2, c.height / 2);
+      g.setColor(r.color);
+      g.drawRoundRect(c.left, c.top, c.width - 1, c.height - 1, c.width / 2, c.height / 2);
+    }
+  }
+
+  private void drawBaseImage(final Graphics2D g) {
+    // Draw areas, then dead avatars, then live.
+    final Collection<Region> areas = new ArrayList<>();
     final Collection<Region> deadAvatars = new ArrayList<>();
     final Collection<Region> liveAvatars = new ArrayList<>();
     for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       for (final Region r : group.getChildren()) {
-        if (!r.isAvatar) {
-          continue;
+        if (r.isArea()) {
+          areas.add(r);
         }
-        if (r.isDead) {
-          deadAvatars.add(r);
-        }
-        else {
-          liveAvatars.add(r);
+        if (r.isAvatar()) {
+          if (r.isDead) {
+            deadAvatars.add(r);
+          }
+          else {
+            liveAvatars.add(r);
+          }
         }
       }
     }
 
+    for (final Region r : areas) {
+      drawArea(g, r);
+    }
     for (final Region r : deadAvatars) {
       drawAvatar(g, r);
     }
@@ -1133,8 +1238,8 @@ public class MapPanel
   }
 
   // Hides/shades areas of the screen that are not being shared.
-  private void drawMask(final Rectangle bounds, final BufferedImage preAvatarImg,
-                        final BufferedImage postAvatarImg, final Graphics2D graphics) {
+  private void drawVisibilityMask(final Rectangle bounds, final BufferedImage preAvatarImg,
+                                  final BufferedImage postAvatarImg, final Graphics2D graphics) {
     // Draw into a fresh image so we don't over-darken any areas with
     // overlapping regions.
     final BufferedImage overlay =
@@ -1146,6 +1251,7 @@ public class MapPanel
     g.setColor(emptyMaskColor);
     g.fillRect(0, 0, bounds.width, bounds.height);
 
+    // Collect the regions to draw.
     final ArrayList<RegionGroup> drawOrder =
       new ArrayList<>(dmtool.getRegions(isPlayer).getGroups().size());
     for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
@@ -1169,39 +1275,37 @@ public class MapPanel
       // And finally, the visible regions.
       return 0;
     });
+
+    // Draw the regions by copying from the pre/post avatar image.
     for (final RegionGroup group : drawOrder) {
       for (final Region r : group.getChildren()) {
-        if (r.isAvatar) {
+        if (!r.isRegion()) {
           // These are drawn elsewhere.
           continue;
         }
 
+        g.setComposite(AlphaComposite.Src);
         final Corners c = new Corners(r);
         if (r.isRegionVisible()) {
           // Make visible regions transparent, for both the DM and the player.
-          g.setComposite(AlphaComposite.Src);
           final Rectangle rect = new Rectangle();
           final Image img = safeGetSubimage(postAvatarImg, rect, c.left, c.top, c.width, c.height);
           if (img != null) {
             g.drawImage(img, rect.x, rect.y, rect.width, rect.height, this);
           }
+          // Leave the region fully transparent.
           g.setColor(new Color(0, 0, 0, 0));
         }
         else if (r.isRegionFogged()) {
           if (isPlayer) {
             // Remove avatars from this region for players.
-            g.setComposite(AlphaComposite.Src);
             final Rectangle rect = new Rectangle();
             final Image img = safeGetSubimage(preAvatarImg, rect, c.left, c.top, c.width, c.height);
             if (img != null) {
               g.drawImage(img, rect.x, rect.y, rect.width, rect.height, this);
             }
-            g.setComposite(AlphaComposite.SrcOver);
           }
-          else {
-            g.setComposite(AlphaComposite.Src);
-          }
-          // Indicate the region is fogged.
+          // Indicate the region is fogged. Darkens for players.
           g.setColor(foggedMaskColor);
         }
         else { // Must be hidden.
@@ -1211,7 +1315,6 @@ public class MapPanel
           }
 
           // Remove the dark mask over the area.
-          g.setComposite(AlphaComposite.Src);
           final Rectangle rect = new Rectangle();
           final Image img = safeGetSubimage(postAvatarImg, rect, c.left, c.top, c.width, c.height);
           if (img != null) {
@@ -1220,6 +1323,7 @@ public class MapPanel
           g.setColor(hiddenMaskColor);
         }
 
+        g.setComposite(AlphaComposite.SrcOver);
         g.fillRect(c.left, c.top, c.width, c.height);
       }
     }
@@ -1270,18 +1374,19 @@ public class MapPanel
       final Graphics2D g = postAvatarImg.createGraphics();
       g.setComposite(AlphaComposite.Src);
       g.drawImage(preAvatarImg, null, this);
-      drawAvatars(g);
+      drawBaseImage(g);
     }
 
     final Graphics2D g = (Graphics2D)getBufferStrategy().getDrawGraphics();
     try {
+      // Compose the pre/post avatar regions according to visibility.
       g.drawImage(postAvatarImg, null, this);
-      drawMask(b, preAvatarImg, postAvatarImg, g);
-
+      drawVisibilityMask(b, preAvatarImg, postAvatarImg, g);
       if (isPlayer) {
         return;
       }
 
+      // Draw the DM's view in addition to that.
       for (final Region r : avatarSelection.values()) {
         if (r == activeRegion) {
           drawCorners(g, ACTIVE_SELECTION_COLOR, r);

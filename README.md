@@ -74,25 +74,44 @@ Everything requires hotkeys, and there are no instructions built into the
 tool, so you'll want to become familiar with this chart. All controls are
 through the DM view; the Player view can only be resized or closed.
 
+The primary conceptual objects are:
+ * Regions - These control visibility of the map. Without a Visible or Fogged
+   region, the Player View will just display black. Regions start as Hidden,
+   and become Visible when you tap the Spacebar or V key while your mouse cursor
+   is over the region. Tapping Space on a visible region toggles it to Fogged,
+   which displays a greyed section of the map on the Player View, without any
+   decoration.
+ * Avatars - These represent your players, NPCs, monsters, etc. Each has a color
+   and a single-character symbol. They can only be seen in the Player View when
+   in a Visible region; they are not shown in Fogged regions (although the map
+   around them is shown), and they are not shown in Hidden regions.
+ * Areas - These are intended to be used for area-of-effect spells. Each has a
+   color, and displays as a translucent area when in a Visible region. They are
+   not visible in Fogged or Hidden regions.
+
+Don't forget to unpause the Player View with F.
+
 | Key | Description |
 |-----|-------------|
 | F   | Pause/Unpause updates to the Player view. |
 | A   | Create a new avatar to represent a player or NPC. Opens a dialog to choose a symbol and color. |
 | R   | Create a new region to control visibility. Click/drag to draw the box. |
+| E   | Create a new area to represent, for example, a spell's area of effect. Opens a color picker to choose the color of the area. |
 | Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for masking oddly-shaped rooms. |
-| Space | Toggle visibility/fogging of the region under the cursor, or the life/death status of the avatar under the cursor. For regions: Hidden -> Visible <-> Fogged. |
-| V   | Toggle avatar and region visibility. For regions: Fogged -> Hidden <-> Visible. |
-| D   | Duplicate the region or avatar under the cursor. Repeated duplications will surround the original object. |
-| Shift+D | Like D, but the new region shares visibility with the region that was under the cursor. For avatars, identical to D. |
-| Alt+Wheel | Adjust avatar brightness. |
-| Alt+Ctrl+Wheel | Adjust avatar saturation. |
-| Alt+Shift+Wheel | Adjust avatar hue. |
-| Click & Drag | Move/resize region or avatar. If it is a selected avatar, move/resize all selected avatars together. |
-| Right-Click & Drag | Select all avatars in the area. |
-| Right-Click | Toggle selection of an avatar.
+| Space | Primary state toggle for the region, avatar, or area under the cursor. Regions: Hidden -> Visible <-> Fogged. Avatars: Live <-> Dead. Areas: Invisible <-> Visible. |
+| V   | Toggle region, avatar, and area visibility. Regions: Fogged -> Hidden <-> Visible. Avatars and Areas: Visible <-> Invisible. |
+| D   | Duplicate the region, avatar, or area under the cursor. Repeated duplications will surround the original object. |
+| Shift+D | Like D, but the new region shares visibility with the region that was under the cursor. For avatars and areas, identical to D. |
+| C | Use a color selection dialog to change the color of the avatar or area under the cursor. |
+| Alt+Wheel | Adjust avatar or area brightness. |
+| Alt+Ctrl+Wheel | Adjust avatar or area saturation. |
+| Alt+Shift+Wheel | Adjust avatar or area hue. |
+| Click & Drag | Move/resize region, avatar, or area. If it is a group-selected avatar, move/resize all selected avatars together. |
+| Right-Click & Drag | Group-select avatars in the dragged area. |
+| Right-Click | Toggle group-selection of an avatar.
 | Off-click during Drag | Cancel operation. For example, while Right-click & Dragging a selection box, a Left-click will cancel the new selection. |
 | Escape | Cancel new-region creation and de-select all avatars. |
-| Backspace / Delete | Delete the region or avatar under the cursor. |
+| Backspace / Delete | Delete the region, avatar, or area under the cursor. |
 | Ctrl+N | Open a new image file to start a new map. Pauses the tool before switching to the new image. Clears the active save file. |
 | Ctrl+S | Save the image, regions, and avatars to a ".dmap" file. Overwrites the active save, if there is one. |
 | Ctrl+Shift+S | Save-As. |

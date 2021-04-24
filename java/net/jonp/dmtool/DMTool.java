@@ -317,7 +317,7 @@ public class DMTool {
     // avatars.
     for (final RegionGroup g : rs.getGroups()) {
       for (final Region r : g.getChildren()) {
-        if (!r.isAvatar) {
+        if (!r.isAvatar()) {
           continue;
         }
         if (r.index == 0) {
