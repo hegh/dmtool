@@ -6,35 +6,48 @@ import java.awt.Color;
 import net.jonp.dmtool.dmproto.DMProto;
 
 public class Region {
-  private static int nextID = 1;
-  public RegionGroup parent;
-  public final int id;
-  public int x, y;
-  public int w, h;
-
   public static enum Type {
     REGION,
     AVATAR,
     AREA,
   }
 
+  public static enum Shape {
+    RECTANGLE,
+    ARC,
+  }
+
+  // Everything has these properties.
+  private static int nextID = 1;
+  public RegionGroup parent;
+  public final int id;
+  public int x, y;
+  public int w, h;
   public Type type;
-  public boolean isDead;
+
+  // This is for convenience, to make duplications easier.
+  // Do not clone this property.
+  int nextDupPosition = 0;
+
+  // Areas only:
+  public Shape shape;
+
+  // Areas and Avatars:
   public boolean isInvisible;
+
+  // Avatars only:
+  public boolean isDead;
   public char symbol;
   public int index; // To tell apart avatars with the same symbol.
   public Color color;
   public Integer fontSize; // Needs to be recalculated on resize.
   public double lastZoomLevel = 1.0; // Recalculate font on zoom change.
 
-  // This is for convenience, to make duplications easier.
-  // Do not clone this property.
-  int nextDupPosition = 0;
-
   @Override
   public Region clone() {
     final Region copy = new Region(parent, x, y, w, h);
     copy.type = type;
+    copy.shape = shape;
     copy.isDead = isDead;
     copy.isInvisible = isInvisible;
     copy.symbol = symbol;
@@ -55,6 +68,7 @@ public class Region {
     nextID++;
 
     type = Type.REGION;
+    shape = Shape.RECTANGLE;
     this.parent = parent;
     this.x = x;
     this.y = y;
@@ -104,14 +118,32 @@ public class Region {
     area.setIsInvisible(isInvisible);
     area.setColor(serializeColor());
     area.setRect(serializeRect());
+    switch (shape) {
+      case RECTANGLE:
+        area.setShape(DMProto.Area.Shape.RECTANGLE);
+        break;
+      case ARC:
+        area.setShape(DMProto.Area.Shape.ARC);
+        break;
+    }
     return area.build();
   }
 
-  public void load(DMProto.Area area) {
+  public void load(final DMProto.Area area) {
     type = Type.AREA;
     isInvisible = area.getIsInvisible();
     load(area.getColor());
     load(area.getRect());
+    switch (area.getShape()) {
+      case RECTANGLE:
+        shape = Shape.RECTANGLE;
+        break;
+      case ARC:
+        shape = Shape.ARC;
+        break;
+      default:
+        shape = Shape.RECTANGLE;
+    }
   }
 
   private DMProto.RGBColor serializeColor() {
@@ -200,6 +232,20 @@ public class Region {
 
   void toggleRegionVisibility() {
     parent.toggleVisibility();
+  }
+
+  void toggleShape() {
+    if (!isArea()) {
+      return;
+    }
+    switch (shape) {
+      case RECTANGLE:
+        shape = Shape.ARC;
+        break;
+      case ARC:
+        shape = Shape.RECTANGLE;
+        break;
+    }
   }
 
   void adjustDims(final int dx, final int dy, final int dw, final int dh) {

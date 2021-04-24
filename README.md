@@ -96,8 +96,9 @@ Don't forget to unpause the Player View with F.
 | F   | Pause/Unpause updates to the Player view. |
 | A   | Create a new avatar to represent a player or NPC. Opens a dialog to choose a symbol and color. |
 | R   | Create a new region to control visibility. Click/drag to draw the box. |
-| E   | Create a new area to represent, for example, a spell's area of effect. Opens a color picker to choose the color of the area. |
 | Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for masking oddly-shaped rooms. |
+| E   | Create a new area to represent, for example, a spell's area of effect. Opens a color picker to choose the color of the area. |
+| S   | Toggle shape of area: Rectangle <-> Circle. |
 | Space | Primary state toggle for the region, avatar, or area under the cursor. Regions: Hidden -> Visible <-> Fogged. Avatars: Live <-> Dead. Areas: Invisible <-> Visible. |
 | V   | Toggle region, avatar, and area visibility. Regions: Fogged -> Hidden <-> Visible. Avatars and Areas: Visible <-> Invisible. |
 | D   | Duplicate the region, avatar, or area under the cursor. Repeated duplications will surround the original object. |

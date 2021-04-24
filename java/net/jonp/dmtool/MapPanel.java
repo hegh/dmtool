@@ -507,6 +507,9 @@ public class MapPanel
               case KeyEvent.VK_V:
                 toggleVisibilityCommand();
                 break;
+              case KeyEvent.VK_S:
+                toggleShapeCommand();
+                break;
               case KeyEvent.VK_DELETE:
               case KeyEvent.VK_BACK_SPACE:
                 deleteRegionCommand();
@@ -822,6 +825,17 @@ public class MapPanel
         activeRegion.toggleAreaVisibility();
         break;
     }
+    dmtool.repaint();
+  }
+
+  private void toggleShapeCommand() {
+    if (activeRegion == null) {
+      return;
+    }
+    if (!activeRegion.isArea()) {
+      return;
+    }
+    activeRegion.toggleShape();
     dmtool.repaint();
   }
 
@@ -1160,16 +1174,17 @@ public class MapPanel
     final Color translucent = withAlpha(r.color, 128);
     g.setColor(translucent);
     g.setComposite(AlphaComposite.SrcOver);
-    if (r.isAreaVisible()) {
-      g.fillRect(c.left, c.top, c.width - 1, c.height - 1);
-      g.setColor(r.color);
-      g.drawRect(c.left, c.top, c.width - 1, c.height - 1);
-    }
-    else {
-      // Rounded rect to indicate invisible.
-      g.fillRoundRect(c.left, c.top, c.width - 1, c.height - 1, c.width / 2, c.height / 2);
-      g.setColor(r.color);
-      g.drawRoundRect(c.left, c.top, c.width - 1, c.height - 1, c.width / 2, c.height / 2);
+    // TODO: Find a way to indicate visible/invisible.
+    switch (r.shape) {
+      case RECTANGLE:
+        g.fillRect(c.left, c.top, c.width - 1, c.height - 1);
+        g.setColor(r.color);
+        g.drawRect(c.left, c.top, c.width - 1, c.height - 1);
+        break;
+      case ARC:
+        g.fillArc(c.left, c.top, c.width - 1, c.height - 1, 0, 360);
+        g.setColor(r.color);
+        g.drawArc(c.left, c.top, c.width - 1, c.height - 1, 0, 360);
     }
   }
 

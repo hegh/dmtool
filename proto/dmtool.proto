@@ -75,6 +75,13 @@ message Area {
   bool is_invisible = 1;
   RGBColor color = 2;
   Rect rect = 3;
+  
+  enum Shape {
+    UNKNOWN = 0;
+    RECTANGLE = 1;
+    ARC = 2;
+  }
+  Shape shape = 4;
 }
 
 // A Rect message represents a rectangle on the map.
