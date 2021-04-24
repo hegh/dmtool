@@ -20,6 +20,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.font.LineMetrics;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
@@ -424,47 +425,50 @@ public class MapPanel
         }
       });
 
-      addMouseWheelListener((final MouseWheelEvent e) -> {
-        System.err.println("Mouse wheel " + e.getWheelRotation() + " with modifiers " +
-                           InputEvent.getModifiersExText(e.getModifiersEx()) +
-                           " with param string \"" + e.paramString() + "\"");
-        if (e.getModifiersEx() == 0) {
-          scroll(DOWN, e.getWheelRotation());
-        }
-        else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
-          // Zoom in such that the same point remains under the mouse cursor
-          // before/after zooming.
-          final Point off = dmtool.getOffset(isPlayer);
-          double scale = dmtool.getScale(isPlayer);
-          final double invScale = 1.0 / scale;
+      addMouseWheelListener(new MouseWheelListener() {
+        @Override
+        public void mouseWheelMoved(final MouseWheelEvent e) {
+          System.err.println("Mouse wheel " + e.getWheelRotation() + " with modifiers " +
+                             InputEvent.getModifiersExText(e.getModifiersEx()) +
+                             " with param string \"" + e.paramString() + "\"");
+          if (e.getModifiersEx() == 0) {
+            scroll(DOWN, e.getWheelRotation());
+          }
+          else if (e.getModifiersEx() == InputEvent.CTRL_DOWN_MASK) {
+            // Zoom in such that the same point remains under the mouse cursor
+            // before/after zooming.
+            final Point off = dmtool.getOffset(isPlayer);
+            double scale = dmtool.getScale(isPlayer);
+            final double invScale = 1.0 / scale;
 
-          // Calculate mouse point in image coordinates.
-          final double ix = (mx - off.x) * invScale;
-          final double iy = (my - off.y) * invScale;
+            // Calculate mouse point in image coordinates.
+            final double ix = (mx - off.x) * invScale;
+            final double iy = (my - off.y) * invScale;
 
-          scale -= scale * 0.05 * e.getWheelRotation();
-          final int nox = (int)(mx - ix * scale);
-          final int noy = (int)(my - iy * scale);
-          dmtool.setScale(scale);
-          dmtool.setOffset(new Point(nox, noy));
+            scale -= scale * 0.05 * e.getWheelRotation();
+            final int nox = (int)(mx - ix * scale);
+            final int noy = (int)(my - iy * scale);
+            dmtool.setScale(scale);
+            dmtool.setOffset(new Point(nox, noy));
+          }
+          else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
+            scroll(RIGHT, e.getWheelRotation());
+          }
+          else if (e.getModifiersEx() == InputEvent.ALT_DOWN_MASK) {
+            // Wheel down is positive, want to darken, so negate.
+            adjustAvatarColor(0.0f, 0.0f, (float)-e.getPreciseWheelRotation());
+          }
+          else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK)) {
+            adjustAvatarColor((float)-e.getPreciseWheelRotation(), 0.0f, 0.0f);
+          }
+          else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
+            adjustAvatarColor(0.0f, (float)-e.getPreciseWheelRotation(), 0.0f);
+          }
+          else {
+            return;
+          }
+          dmtool.repaint();
         }
-        else if (e.getModifiersEx() == InputEvent.SHIFT_DOWN_MASK) {
-          scroll(RIGHT, e.getWheelRotation());
-        }
-        else if (e.getModifiersEx() == InputEvent.ALT_DOWN_MASK) {
-          // Wheel down is positive, want to darken, so negate.
-          adjustAvatarColor(0.0f, 0.0f, (float)-e.getPreciseWheelRotation());
-        }
-        else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK)) {
-          adjustAvatarColor((float)-e.getPreciseWheelRotation(), 0.0f, 0.0f);
-        }
-        else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
-          adjustAvatarColor(0.0f, (float)-e.getPreciseWheelRotation(), 0.0f);
-        }
-        else {
-          return;
-        }
-        dmtool.repaint();
       });
 
       addKeyListener(new KeyAdapter() {
