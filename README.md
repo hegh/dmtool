@@ -95,9 +95,9 @@ Don't forget to unpause the Player View with F.
 |-----|-------------|
 | F   | Pause/Unpause updates to the Player view. |
 | A   | Create a new avatar to represent a player or NPC. Opens a dialog to choose a symbol and color. |
-| R   | Create a new region to control visibility. Click/drag to draw the box. |
+| R   | Create a new region to control visibility. Click/drag to draw the box. Hold Shift for a square. |
 | Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for masking oddly-shaped rooms. |
-| E   | Create a new area to represent, for example, a spell's area of effect. Opens a color picker to choose the color of the area. |
+| E   | Create a new area to represent, for example, a spell's area of effect. Opens a color picker to choose the color of the area, then click/drag to draw. Hold Shift for a square. |
 | S   | Toggle shape of area: Rectangle <-> Circle. |
 | Space | Primary state toggle for the region, avatar, or area under the cursor. Regions: Hidden -> Visible <-> Fogged. Avatars: Live <-> Dead. Areas: Invisible <-> Visible. |
 | V   | Toggle region, avatar, and area visibility. Regions: Fogged -> Hidden <-> Visible. Avatars and Areas: Visible <-> Invisible. |
@@ -107,9 +107,9 @@ Don't forget to unpause the Player View with F.
 | Alt+Wheel | Adjust avatar or area brightness. |
 | Alt+Ctrl+Wheel | Adjust avatar or area saturation. |
 | Alt+Shift+Wheel | Adjust avatar or area hue. |
-| Click & Drag | Move/resize region, avatar, or area. If it is a group-selected avatar, move/resize all selected avatars together. |
+| Click & Drag | Move/resize region, avatar, or area. If it is a group-selected avatar, move/resize all selected avatars together. Hold Shift during resize to force perfect squares. |
 | Right-Click & Drag | Group-select avatars in the dragged area. |
-| Right-Click | Toggle group-selection of an avatar.
+| Right-Click | Toggle group-selection of an avatar. |
 | Off-click during Drag | Cancel operation. For example, while Right-click & Dragging a selection box, a Left-click will cancel the new selection. |
 | Escape | Cancel new-region creation and de-select all avatars. |
 | Backspace / Delete | Delete the region, avatar, or area under the cursor. |

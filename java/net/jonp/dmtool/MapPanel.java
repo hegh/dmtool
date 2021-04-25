@@ -116,12 +116,21 @@ public class MapPanel
         bh = invScale * hm * dy;
       }
 
-      final double rWidth = Math.abs(r.getW() + bw);
-      final double rHeight = Math.abs(r.getH() + bh);
-      final double rLeft = Math.min(r.getX() + bx, r.getX() + bx + r.getW() + bw);
-      final double rRight = Math.max(r.getX() + bx, r.getX() + bx + r.getW() + bw);
-      final double rTop = Math.min(r.getY() + by, r.getY() + by + r.getH() + bh);
-      final double rBottom = Math.max(r.getY() + by, r.getY() + by + r.getH() + bh);
+      double rWidth = Math.abs(r.getW() + bw);
+      double rHeight = Math.abs(r.getH() + bh);
+      if (dragging && squareDrag &&
+          (r == activeRegion ||
+           (avatarSelection.containsKey(activeRegion.id) && avatarSelection.containsKey(r.id)))) {
+        if (rWidth > rHeight) {
+          rWidth = rHeight;
+        }
+        rHeight = rWidth;
+      }
+
+      final double rLeft = Math.min(r.getX() + bx, r.getX() + bx + rWidth);
+      final double rRight = Math.max(r.getX() + bx, r.getX() + bx + rWidth);
+      final double rTop = Math.min(r.getY() + by, r.getY() + by + rHeight);
+      final double rBottom = Math.max(r.getY() + by, r.getY() + by + rHeight);
 
       final Point off = dmtool.getOffset(isPlayer);
       left = (int)(off.x + scale * rLeft);
@@ -156,6 +165,7 @@ public class MapPanel
 
   int mx, my; // Last known mouse position.
   int mouseStatus = OUT_OF_REGION;
+  boolean squareDrag; // Dragged boxes should be squared (hold shift).
 
   // If true, activeRegion is being created.
   // If activeRegion is null, it will be created on mouse-down.
@@ -279,11 +289,23 @@ public class MapPanel
             // Adjust dimensions of all selected regions.
             for (final Region r : avatarSelection.values()) {
               r.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
+              if (squareDrag) {
+                if (r.w > r.h) {
+                  r.w = r.h;
+                }
+                r.h = r.w;
+              }
               r.fontSize = null;
             }
           }
           else {
             activeRegion.adjustDims((int)(xm * dx), (int)(ym * dy), (int)(wm * dx), (int)(hm * dy));
+            if (squareDrag) {
+              if (activeRegion.w > activeRegion.h) {
+                activeRegion.w = activeRegion.h;
+              }
+              activeRegion.h = activeRegion.w;
+            }
             activeRegion.fontSize = null;
           }
 
@@ -484,9 +506,19 @@ public class MapPanel
 
       addKeyListener(new KeyAdapter() {
         @Override
+        public void keyReleased(final KeyEvent e) {
+          if ((e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) != InputEvent.SHIFT_DOWN_MASK) {
+            squareDrag = false;
+          }
+        }
+
+        @Override
         public void keyPressed(final KeyEvent e) {
           System.err.println("Key pressed " + e.getKeyCode() + " (" + e.getKeyChar() +
                              ") modifiers " + InputEvent.getModifiersExText(e.getModifiersEx()));
+          if ((e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) == InputEvent.SHIFT_DOWN_MASK) {
+            squareDrag = true;
+          }
           if (e.getModifiersEx() == 0) {
             switch (e.getKeyCode()) {
               case KeyEvent.VK_R:
@@ -1420,7 +1452,6 @@ public class MapPanel
           }
         }
         drawCorners(g, HANDLE_COLOR, activeRegion);
-        drawControls(g, activeRegion);
       }
 
       if (dmtool.isPaused()) {
@@ -1518,9 +1549,5 @@ public class MapPanel
   private void drawHandle(final Graphics2D g, final Color color, final int x, final int y) {
     g.setColor(color);
     g.fillRect(x, y, HANDLE_SIZE, HANDLE_SIZE);
-  }
-
-  private void drawControls(final Graphics2D g, final Region r) {
-    // TODO: Draw controls in the region.
   }
 }
