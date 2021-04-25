@@ -11,6 +11,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Point;
+import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.InputEvent;
@@ -23,6 +24,7 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.font.LineMetrics;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Arc2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.RasterFormatException;
@@ -488,14 +490,14 @@ public class MapPanel
             scroll(RIGHT, e.getWheelRotation());
           }
           else if (e.getModifiersEx() == InputEvent.ALT_DOWN_MASK) {
-            // Wheel down is positive, want to darken, so negate.
-            adjustColor(0.0f, 0.0f, (float)-e.getPreciseWheelRotation());
+            adjustAreaRotation((float)-e.getPreciseWheelRotation());
           }
           else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK)) {
-            adjustColor((float)-e.getPreciseWheelRotation(), 0.0f, 0.0f);
+            adjustAreaInternalAngle((float)-e.getPreciseWheelRotation());
           }
           else if (e.getModifiersEx() == (InputEvent.ALT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)) {
-            adjustColor(0.0f, (float)-e.getPreciseWheelRotation(), 0.0f);
+            // Wheel down is positive, want to darken, so negate.
+            adjustColor(0.0f, 0.0f, (float)-e.getPreciseWheelRotation());
           }
           else {
             return;
@@ -541,6 +543,9 @@ public class MapPanel
                 break;
               case KeyEvent.VK_S:
                 toggleShapeCommand();
+                break;
+              case KeyEvent.VK_Q:
+                toggleAreaArcWidthCommand();
                 break;
               case KeyEvent.VK_DELETE:
               case KeyEvent.VK_BACK_SPACE:
@@ -766,6 +771,7 @@ public class MapPanel
       newRegion = true;
       newArea = true;
       mouseStatus = NEW_REGION;
+      lastAreaColor = result;
       setCursor(Cursor.getPredefinedCursor(cursorMap.get(mouseStatus)));
     }
   }
@@ -871,6 +877,23 @@ public class MapPanel
     dmtool.repaint();
   }
 
+  private void toggleAreaArcWidthCommand() {
+    if (activeRegion == null) {
+      return;
+    }
+    if (!activeRegion.isArea()) {
+      return;
+    }
+
+    if (activeRegion.internalAngle == 360) {
+      activeRegion.internalAngle = 46;
+    }
+    else {
+      activeRegion.internalAngle = 360;
+    }
+    dmtool.repaint();
+  }
+
   private void detectMouseOverRegion() {
     if (newRegion && activeRegion == null) {
       mouseStatus = NEW_REGION;
@@ -900,7 +923,7 @@ public class MapPanel
     final double scale = dmtool.getScale(isPlayer);
     for (final RegionGroup group : dmtool.getRegions(isPlayer).getGroups()) {
       for (final Region r : group.getChildren()) {
-        if (new Corners(r).contains(mx, my)) {
+        if (regionContainsPoint(r, mx, my)) {
           switch (r.type) {
             case AVATAR:
               if (r.isDead) {
@@ -930,6 +953,18 @@ public class MapPanel
       return area;
     }
     return region;
+  }
+
+  boolean regionContainsPoint(final Region r, final int x, final int y) {
+    final Corners c = new Corners(r);
+    if (r.isArea() && r.shape == Region.Shape.RECTANGLE) {
+      final Polygon p = rotate(c, r.rotation);
+      final Rectangle box = p.getBounds();
+      return box.contains(new Point(x, y));
+    }
+    else {
+      return c.contains(x, y);
+    }
   }
 
   Point windowToImageCoords(int x, int y) {
@@ -969,6 +1004,42 @@ public class MapPanel
     noff.x += SCROLL_DIST * xm * value;
     noff.y += SCROLL_DIST * ym * value;
     dmtool.setOffset(noff);
+    dmtool.repaint();
+  }
+
+  void adjustAreaRotation(final float value) {
+    if (activeRegion == null) {
+      return;
+    }
+    if (!activeRegion.isArea()) {
+      return;
+    }
+
+    final float increment = 5;
+    activeRegion.rotation += (int)(value * increment);
+    activeRegion.rotation %= 360;
+    if (activeRegion.rotation < 0) {
+      activeRegion.rotation += 360;
+    }
+    System.err.printf("Area rotated to %d°\n", activeRegion.rotation);
+    dmtool.repaint();
+  }
+
+  void adjustAreaInternalAngle(final float value) {
+    if (activeRegion == null) {
+      return;
+    }
+    if (!activeRegion.isArea()) {
+      return;
+    }
+
+    final float increment = 5;
+    activeRegion.internalAngle += (int)(value * increment);
+    activeRegion.internalAngle %= 360;
+    if (activeRegion.internalAngle <= 0) {
+      activeRegion.internalAngle += 360;
+    }
+    System.err.printf("Area internal angle adjusted to %d°\n", activeRegion.internalAngle);
     dmtool.repaint();
   }
 
@@ -1197,6 +1268,33 @@ public class MapPanel
     return new Color(c.getRed(), c.getGreen(), c.getBlue(), alpha);
   }
 
+  private Polygon rotate(final Corners c, final float degrees) {
+    // Rotates around the center of the rectangle.
+    final int ox = c.left + c.width / 2;
+    final int oy = c.top + c.height / 2;
+
+    final int x1 = c.left - ox;
+    final int y1 = c.top - oy;
+    final int x2 = x1 + c.width;
+    final int y2 = y1 + c.height;
+
+    // Manually applying the rotation matrix. Note that the resulting rectangle
+    // cannot be represented simply as x,y width,height any more; we need four
+    // distinct corner coordinates.
+    // | cos θ, -sin θ |
+    // | sin θ, cos θ |
+    final double angle = Math.toRadians(degrees);
+    final double sin = Math.sin(angle);
+    final double cos = Math.cos(angle);
+    final Polygon p = new Polygon();
+    p.addPoint((int)(x1 * cos - y1 * sin), (int)(x1 * sin + y1 * cos));
+    p.addPoint((int)(x1 * cos - y2 * sin), (int)(x1 * sin + y2 * cos));
+    p.addPoint((int)(x2 * cos - y2 * sin), (int)(x2 * sin + y2 * cos));
+    p.addPoint((int)(x2 * cos - y1 * sin), (int)(x2 * sin + y1 * cos));
+    p.translate(ox, oy);
+    return p;
+  }
+
   private void drawArea(final Graphics2D g, final Region r) {
     if (isPlayer && !r.isAreaVisible()) {
       return;
@@ -1209,14 +1307,29 @@ public class MapPanel
     // TODO: Find a way to indicate visible/invisible.
     switch (r.shape) {
       case RECTANGLE:
-        g.fillRect(c.left, c.top, c.width - 1, c.height - 1);
+        final Polygon p = rotate(c, r.rotation);
+        g.fillPolygon(p);
         g.setColor(r.color);
-        g.drawRect(c.left, c.top, c.width - 1, c.height - 1);
+        g.drawPolygon(p);
         break;
       case ARC:
-        g.fillArc(c.left, c.top, c.width - 1, c.height - 1, 0, 360);
+        final Arc2D.Float s =
+          new Arc2D.Float(c.left, c.top, c.width, c.height, r.rotation, r.internalAngle, Arc2D.PIE);
+
+        // We want the arc to take up the entire frame, but due to the internal
+        // angle, it may not. Adjust the frame by the magnitude of the
+        // difference so the arc takes up the whole thing.
+        // TODO: Corners reach a little out of the frame, keep them fully
+        // inside.
+        final Rectangle2D.Float b = (Rectangle2D.Float)s.getBounds2D();
+        final float nx1 = c.left + 2 * (c.left - b.x);
+        final float ny1 = c.top + 2 * (c.top - b.y);
+        final float nx2 = c.right + 2 * (c.right - (b.x + b.width));
+        final float ny2 = c.bottom + 2 * (c.bottom - (b.y + b.height));
+        s.setFrame(nx1, ny1, nx2 - nx1, ny2 - ny1);
+        g.fill(s);
         g.setColor(r.color);
-        g.drawArc(c.left, c.top, c.width - 1, c.height - 1, 0, 360);
+        g.draw(s);
     }
   }
 
@@ -1384,7 +1497,14 @@ public class MapPanel
         g.setColor(activeMaskColor);
       }
       final Corners c = new Corners(activeRegion);
-      g.fillRect(c.left, c.top, c.width, c.height);
+      if (activeRegion.isArea() && activeRegion.shape == Region.Shape.RECTANGLE) {
+        final Polygon p = rotate(c, activeRegion.rotation);
+        final Rectangle box = p.getBounds();
+        g.fillRect(box.x, box.y, box.width, box.height);
+      }
+      else {
+        g.fillRect(c.left, c.top, c.width, c.height);
+      }
     }
 
     graphics.drawImage(overlay, null, this);
@@ -1497,44 +1617,97 @@ public class MapPanel
   }
 
   private void drawCorners(final Graphics2D g, final Color color, final Region r) {
-    final Corners c = new Corners(r);
     final int hs = HANDLE_SIZE;
     final int hhs = HANDLE_SIZE / 2;
-    drawHandle(g, color, c.left, c.top); // Upper-left.
-    drawHandle(g, color, c.right - hs, c.top); // Upper-right.
-    drawHandle(g, color, c.left, c.bottom - hs); // Lower-left.
-    drawHandle(g, color, c.right - hs, c.bottom - hs); // Lower-right.
-    drawHandle(g, color, c.midX - hhs, c.top); // Top.
-    drawHandle(g, color, c.midX - hhs, c.bottom - hs); // Bottom.
-    drawHandle(g, color, c.left, c.midY - hhs); // Left.
-    drawHandle(g, color, c.right - hs, c.midY - hhs); // Right.
+
+    final Corners c = new Corners(r);
+    int left;
+    int top;
+    int right;
+    int bottom;
+    int midX;
+    int midY;
+    if (r.isArea() && r.shape == Region.Shape.RECTANGLE) {
+      final Polygon p = rotate(c, r.rotation);
+      final Rectangle box = p.getBounds();
+      left = box.x;
+      top = box.y;
+      right = box.x + box.width;
+      bottom = box.y + box.height;
+      midX = box.x + box.width / 2;
+      midY = box.y + box.height / 2;
+    }
+    else {
+      left = c.left;
+      top = c.top;
+      right = c.right;
+      bottom = c.bottom;
+      midX = c.midX;
+      midY = c.midY;
+    }
+
+    drawHandle(g, color, left, top); // Upper-left.
+    drawHandle(g, color, right - hs, top); // Upper-right.
+    drawHandle(g, color, left, bottom - hs); // Lower-left.
+    drawHandle(g, color, right - hs, bottom - hs); // Lower-right.
+    drawHandle(g, color, midX - hhs, top); // Top.
+    drawHandle(g, color, midX - hhs, bottom - hs); // Bottom.
+    drawHandle(g, color, left, midY - hhs); // Left.
+    drawHandle(g, color, right - hs, midY - hhs); // Right.
   }
 
   private int determineMouseStatus(final Region r) {
-    final Corners c = new Corners(r);
     final double min = HANDLE_SIZE * 2;
-    if (mouseDist(c.left, c.top) <= min) { // Upper-left.
+
+    final Corners c = new Corners(r);
+
+    int left;
+    int top;
+    int right;
+    int bottom;
+    int midX;
+    int midY;
+    if (r.isArea() && r.shape == Region.Shape.RECTANGLE) {
+      final Polygon p = rotate(c, r.rotation);
+      final Rectangle box = p.getBounds();
+      left = box.x;
+      top = box.y;
+      right = box.x + box.width;
+      bottom = box.y + box.height;
+      midX = box.x + box.width / 2;
+      midY = box.y + box.height / 2;
+    }
+    else {
+      left = c.left;
+      top = c.top;
+      right = c.right;
+      bottom = c.bottom;
+      midX = c.midX;
+      midY = c.midY;
+    }
+
+    if (mouseDist(left, top) <= min) { // Upper-left.
       return NW_CORNER;
     }
-    if (mouseDist(c.right, c.top) <= min) { // Upper-right.
+    if (mouseDist(right, top) <= min) { // Upper-right.
       return NE_CORNER;
     }
-    if (mouseDist(c.left, c.bottom) <= min) { // Lower-left.
+    if (mouseDist(left, bottom) <= min) { // Lower-left.
       return SW_CORNER;
     }
-    if (mouseDist(c.right, c.bottom) <= min) { // Lower-right.
+    if (mouseDist(right, bottom) <= min) { // Lower-right.
       return SE_CORNER;
     }
-    if (mouseDist(c.left + c.width / 2, c.top) <= min) { // Top.
+    if (mouseDist(midX, top) <= min) { // Top.
       return N_EDGE;
     }
-    if (mouseDist(c.left + c.width / 2, c.bottom) <= min) { // Bottom.
+    if (mouseDist(midX, bottom) <= min) { // Bottom.
       return S_EDGE;
     }
-    if (mouseDist(c.left, c.top + c.height / 2) <= min) { // Left.
+    if (mouseDist(left, midY) <= min) { // Left.
       return W_EDGE;
     }
-    if (mouseDist(c.right, c.top + c.height / 2) <= min) { // Right.
+    if (mouseDist(right, midY) <= min) { // Right.
       return E_EDGE;
     }
     return IN_REGION;

@@ -99,14 +99,15 @@ Don't forget to unpause the Player View with F.
 | Shift+R | Like R, but the new region shares visibility with the region that was under the cursor. Useful for masking oddly-shaped rooms. |
 | E   | Create a new area to represent, for example, a spell's area of effect. Opens a color picker to choose the color of the area, then click/drag to draw. Hold Shift for a square. |
 | S   | Toggle shape of area: Rectangle <-> Circle. |
+| Q   | Toggle a circular area's arc span between 46° <-> 360°. 46° (technically, atan(1/2) ~= 46.3647...°) is a cone that is as wide at any point as that point's distance from the apex. |
 | Space | Primary state toggle for the region, avatar, or area under the cursor. Regions: Hidden -> Visible <-> Fogged. Avatars: Live <-> Dead. Areas: Invisible <-> Visible. |
 | V   | Toggle region, avatar, and area visibility. Regions: Fogged -> Hidden <-> Visible. Avatars and Areas: Visible <-> Invisible. |
 | D   | Duplicate the region, avatar, or area under the cursor. Repeated duplications will surround the original object. |
 | Shift+D | Like D, but the new region shares visibility with the region that was under the cursor. For avatars and areas, identical to D. |
 | C | Use a color selection dialog to change the color of the avatar or area under the cursor. |
-| Alt+Wheel | Adjust avatar or area brightness. |
-| Alt+Ctrl+Wheel | Adjust avatar or area saturation. |
-| Alt+Shift+Wheel | Adjust avatar or area hue. |
+| Alt+Wheel | Adjust area rotation. |
+| Alt+Shift+Wheel | Adjust the span of the arc in a circular area. See also Q. |
+| Alt+Ctrl+Wheel | Adjust avatar or area brightness. |
 | Click & Drag | Move/resize region, avatar, or area. If it is a group-selected avatar, move/resize all selected avatars together. Hold Shift during resize to force perfect squares. |
 | Right-Click & Drag | Group-select avatars in the dragged area. |
 | Right-Click | Toggle group-selection of an avatar. |

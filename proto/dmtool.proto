@@ -82,6 +82,9 @@ message Area {
     ARC = 2;
   }
   Shape shape = 4;
+
+  int32 rotation = 5;
+  int32 internalAngle = 6;
 }
 
 // A Rect message represents a rectangle on the map.

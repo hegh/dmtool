@@ -31,6 +31,8 @@ public class Region {
 
   // Areas only:
   public Shape shape;
+  public int rotation = 0;
+  public int internalAngle = 360; // For arcs.
 
   // Areas and Avatars:
   public boolean isInvisible;
@@ -126,6 +128,8 @@ public class Region {
         area.setShape(DMProto.Area.Shape.ARC);
         break;
     }
+    area.setRotation(rotation);
+    area.setInternalAngle(internalAngle);
     return area.build();
   }
 
@@ -144,6 +148,8 @@ public class Region {
       default:
         shape = Shape.RECTANGLE;
     }
+    rotation = area.getRotation();
+    internalAngle = area.getInternalAngle();
   }
 
   private DMProto.RGBColor serializeColor() {
