@@ -102,6 +102,11 @@ public class MapPanel
     public Corners(final Region r) {
       final double scale = dmtool.getScale(isPlayer);
       final double invScale = 1.0 / scale;
+
+      // If dragging a box, set the b* vars that act as the active region's
+      // dimensions.
+      // The active region will have all 0s, so we can add the two together to
+      // get the actual region dimensions.
       double bx = 0;
       double by = 0;
       double bw = 0;
@@ -118,8 +123,9 @@ public class MapPanel
         bh = invScale * hm * dy;
       }
 
-      double rWidth = Math.abs(r.getW() + bw);
-      double rHeight = Math.abs(r.getH() + bh);
+      // Square the region if dragging while holding the square modifier.
+      double rWidth = r.getW() + bw;
+      double rHeight = r.getH() + bh;
       if (dragging && squareDrag &&
           (r == activeRegion ||
            (avatarSelection.containsKey(activeRegion.id) && avatarSelection.containsKey(r.id)))) {
@@ -129,6 +135,7 @@ public class MapPanel
         rHeight = rWidth;
       }
 
+      // Determine the corner & middle-edge coordinates.
       final double rLeft = Math.min(r.getX() + bx, r.getX() + bx + rWidth);
       final double rRight = Math.max(r.getX() + bx, r.getX() + bx + rWidth);
       final double rTop = Math.min(r.getY() + by, r.getY() + by + rHeight);
